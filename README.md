@@ -11,8 +11,10 @@ Abra http://localhost:3000. O Período 1 começa em 06/10/2026 às 00:00 (São P
 ## Supabase
 1. Crie um projeto Supabase e execute `supabase/schema.sql` no SQL Editor.
 2. Copie `.env.example` para `.env.local` e informe URL e chave pública anon do projeto. Nunca use service_role no cliente.
-3. Habilite e-mail/senha em Authentication; configure as URLs permitidas para localhost e domínio Vercel.
-4. Reinicie a aplicação. Abra o avatar → Criar conta/Entrar.
+3. Em Authentication, habilite **Anonymous Sign-Ins**. Não é necessário e-mail/senha.
+4. Reinicie a aplicação. Uma sessão anônima é criada automaticamente e os registros locais são enviados à nuvem quando não existe um documento remoto.
+
+A sessão pertence ao navegador. Limpar os dados do navegador ou usar outro dispositivo gera uma identidade diferente, sem acesso automático ao documento anterior. Exporte backups. `.env.example` é somente um modelo; os valores precisam estar em `.env.local` ou nas variáveis de ambiente da hospedagem.
 
 A versão atual sincroniza o documento completo em `dashboard_states` por usuário. As tabelas normalizadas estão preparadas para a próxima etapa; não são preenchidas automaticamente nesta versão. Edições simultâneas em vários dispositivos usam a última gravação.
 
