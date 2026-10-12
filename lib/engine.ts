@@ -1,8 +1,9 @@
+import initialPeriod from '../config/initial-period.json' with {type:'json'};
 export const areas = ['Comercial','Saúde','Estudo','Disciplina'];
 export type Metric = {id:string; name:string; area:string; unit:string; target:number; weight:number; active:boolean};
 export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; trainings:{type:string; quality:number; duration:number; note:string}[]};
 export type Week = {metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string};
-export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean};
+export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
 export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean};
 export type State = {periods:Period[]; selected:string; defaults:Metric[]; weights:Record<string,number>; green:number; yellow:number};
@@ -18,7 +19,7 @@ export const lifeDefaults:Life[]=[
 export function emptyEntry(date:string):Entry {return {date,leads:0,visits:0,scheduled:0,calls:0,reviews:0,minutes:0,updates:false,makers:false,daily:false,trainings:[]};}
 export function makePeriod(name:string,start:string,metrics=defaults,areaWeights:Record<string,number>=weights):Period {
  const end=new Date(new Date(start).getTime()+84*86400000).toISOString();
- return {id:crypto.randomUUID(),name,start,end,closed:false,weeks:Array.from({length:12},()=>({metrics:structuredClone(metrics),weights:{...areaWeights},entries:[],reviewed:false,note:''})),goals:[{name:'Clientes fechados',area:'Empresa',value:0,target:8,initial:0,unit:'clientes',stock:false},{name:'Caixa da empresa',area:'Empresa',value:0,target:16000,initial:0,unit:'R$',stock:true},{name:'Receita nova',area:'Empresa',value:0,target:0,initial:0,unit:'R$',stock:false},{name:'Investimentos',area:'Pessoal',value:24225,target:25000,initial:24225,unit:'R$',stock:true},{name:'Peso corporal',area:'Saúde',value:70.25,target:70,initial:70.25,unit:'kg',stock:true}],life:structuredClone(lifeDefaults),strategies:'Não distribuir lucro.\nViver apenas com pró-labore de R$3.200.\nProspectar consistentemente durante o período.'};
+ return {id:crypto.randomUUID(),name,start,end,closed:false,weeks:Array.from({length:12},()=>({metrics:structuredClone(metrics),weights:{...areaWeights},entries:[],reviewed:false,note:''})),goals:[{name:'Clientes fechados',area:'Empresa',value:0,target:8,initial:0,unit:'clientes',stock:false,confirmed:false,initialConfirmed:true},{name:'Caixa da empresa',area:'Empresa',value:0,target:16000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Receita nova',area:'Empresa',value:0,target:0,initial:0,unit:'R$',stock:false,confirmed:false,initialConfirmed:true},{name:'Investimentos',area:'Pessoal',value:0,target:25000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Peso corporal',area:'Saúde',value:0,target:70,initial:0,unit:'kg',stock:true,confirmed:false,initialConfirmed:false}],life:structuredClone(lifeDefaults),strategies:'Não distribuir lucro.\nViver apenas com pró-labore de R$3.200.\nProspectar consistentemente durante o período.'};
 }
 export function virtualTime(period:Period,now:number) {
  const start=Date.parse(period.start),end=Date.parse(period.end);const progress=period.closed?1:Math.max(0,Math.min(1,(now-start)/(end-start)));
@@ -33,6 +34,15 @@ export function scoreWeek(week:Week) {
  const applicable=areas.filter(a=>scores[a]!==null&&week.weights[a]>0);const overall=applicable.length?applicable.reduce((s,a)=>s+scores[a]!*week.weights[a],0)/applicable.reduce((s,a)=>s+week.weights[a],0):null;
  return {metrics,scores,overall,total};
 }
-export function projection(goal:Goal,progress:number){if(progress<=0||goal.unit==='kg')return null;return goal.stock?goal.initial+(goal.value-goal.initial)/progress:goal.value/progress;}
-export function initialState():State {const p=makePeriod('Período 1','2026-10-05T00:00:00-03:00');p.name='Período demonstrativo';p.goals[0].value=2;p.goals[1].value=5200;p.goals[2].value=6400;for(let w=0;w<2;w++){for(let d=0;d<7;d++){const e=emptyEntry(new Date(Date.parse(p.start)+(w*7+d)*86400000).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}));e.leads=[20,0,18,0,16,0,0][d];e.visits=d===1||d===3?3:0;e.scheduled=d<4?1:0;e.calls=d<3?1:0;e.reviews=d<2?1:0;e.minutes=d<5?54:0;e.updates=d!==5;e.makers=d<5;e.daily=d!==6;if(d<5)e.trainings=[{type:d<3?'Musculação':'Corrida',quality:d===0?5:d<3?4:3,duration:50,note:''}];p.weeks[w].entries.push(e);}p.weeks[w].reviewed=w===0;}
- return {periods:[p],selected:p.id,defaults:structuredClone(defaults),weights:{...weights},green:85,yellow:70};}
+export function projection(goal:Goal,progress:number){if(progress<=0||goal.unit==='kg'||goal.confirmed===false||(goal.stock&&goal.initialConfirmed===false))return null;return goal.stock?goal.initial+(goal.value-goal.initial)/progress:goal.value/progress;}
+export function initialState():State {
+ const p=makePeriod(initialPeriod.name,initialPeriod.start);
+ return {periods:[p],selected:p.id,defaults:structuredClone(defaults),weights:{...weights},green:85,yellow:70};
+}
+// Replace only the known demonstration. Preserve existing real periods and user settings.
+export function migrateDemoState(state:State):State {
+ const real=state.periods.filter(p=>p.name!=='Período demonstrativo');
+ if(real.length===state.periods.length)return state;
+ if(!real.length){const p=makePeriod(initialPeriod.name,initialPeriod.start,state.defaults,state.weights);return {...state,periods:[p],selected:p.id};}
+ return {...state,periods:real,selected:real.some(p=>p.id===state.selected)?state.selected:real[0].id};
+}

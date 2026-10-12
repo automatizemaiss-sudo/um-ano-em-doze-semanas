@@ -6,7 +6,7 @@ Dashboard pessoal em Next.js, React e Supabase. Interface em português, timezon
 npm install
 npm run dev
 ```
-Abra http://localhost:3000. A primeira abertura mostra um período demonstrativo. Use **Criar meu período** para configurar sua data real. Registros locais permanecem no navegador; exporte backups em Configurações.
+Abra http://localhost:3000. O Período 1 começa em 06/10/2026 às 00:00 (São Paulo), conforme informado. O início fica em `config/initial-period.json` e pode ser ajustado em Configurações antes dos primeiros registros. Execução começa vazia; resultados não informados aparecem como travessão, sem projeção. Registros locais permanecem no navegador; exporte backups em Configurações.
 
 ## Supabase
 1. Crie um projeto Supabase e execute `supabase/schema.sql` no SQL Editor.
@@ -27,4 +27,4 @@ npm run build
 Veja `docs/ARQUITETURA.md` para cálculo, modelagem e decisões.
 
 ## Limites atuais
-Resultados e notas finais são valores atuais, sem trilha temporal de alterações no documento. Não há upload de fotos, integrações externas nem comparação de radar entre períodos. Metas diárias booleanas usam quantidade prevista de dias; não restringem dias específicos da semana. Novos tipos e definições de métrica precisam ser adicionados ao modelo antes de aparecerem na interface. Encerrar um período preserva a consulta, mas ainda permite corrigir registros históricos.
+O antigo período demonstrativo é substituído pelo período real, preservando um backup local em `12weeks-demo-archive` e mantendo períodos reais existentes. Resultados e notas finais são valores atuais, sem trilha temporal de alterações no documento. Não há upload de fotos, integrações externas nem comparação de radar entre períodos. Metas diárias booleanas usam quantidade prevista de dias; não restringem dias específicos da semana. Novos tipos e definições de métrica precisam ser adicionados ao modelo antes de aparecerem na interface. Encerrar um período preserva a consulta, mas ainda permite corrigir registros históricos.
