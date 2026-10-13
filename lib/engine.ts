@@ -10,7 +10,7 @@ export type Entry = {date:string; leads:number; visits:number; scheduled:number;
 export type Week = {metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string; dailyTargets?:Record<string,number[]>; commercialDays?:{online:number[];presential:number[]}};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
-export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; commitmentPrinciple?:string; commitments?:string[]; perspective?:string};
+export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; calendarVersion?:number; commitmentPrinciple?:string; commitments?:string[]; perspective?:string};
 export type State = {periods:Period[]; selected:string; defaults:Metric[]; weights:Record<string,number>; green:number; yellow:number; areaWeightsVersion?:number};
 export const defaults:Metric[] = [
  ['leads','Leads prospectados online','Comercial','leads',60,3],['visits','Prospecções presenciais','Comercial','empresas',8,2],['scheduled','Calls agendadas','Comercial','calls',5,2],['calls','Calls realizadas','Comercial','calls',4,2],['reviews','Revisões de call','Comercial','revisões',0,1],
@@ -23,13 +23,13 @@ export const lifeDefaults:Life[]=[
 ].map(([name,vision,initial])=>({name:String(name),vision:String(vision),initial:initial===null?null:Number(initial),final:null}));
 export function emptyEntry(date:string):Entry {return {date,leads:0,visits:0,scheduled:0,calls:0,reviews:0,minutes:0,updates:false,makers:false,daily:false,trainings:[]};}
 export function makePeriod(name:string,start:string,metrics=defaults,areaWeights:Record<string,number>=weights):Period {
- const end=new Date(new Date(start).getTime()+84*86400000).toISOString();
- return {id:crypto.randomUUID(),name,start,end,closed:false,areaWeightsVersion:2,commitmentPrinciple:commitments.principle,commitments:[...commitments.items],weeks:Array.from({length:12},()=>({metrics:structuredClone(metrics),weights:{...areaWeights},entries:[],reviewed:false,note:''})),goals:[{name:'Clientes fechados',area:'Empresa',value:0,target:8,initial:0,unit:'clientes',stock:false,confirmed:false,initialConfirmed:true},{name:'Caixa da empresa',area:'Empresa',value:0,target:16000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Receita nova',area:'Empresa',value:0,target:0,initial:0,unit:'R$',stock:false,confirmed:false,initialConfirmed:true},{name:'Investimentos',area:'Pessoal',value:0,target:25000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Peso corporal',area:'Saúde',value:0,target:70,initial:0,unit:'kg',stock:true,confirmed:false,initialConfirmed:false}],life:structuredClone(lifeDefaults),strategies:'Não distribuir lucro.\nViver apenas com pró-labore de R$3.200.\nProspectar consistentemente durante o período.'};
+ const end=weekBounds({start} as Period,11).end;
+ return {id:crypto.randomUUID(),name,start,end,closed:false,areaWeightsVersion:2,calendarVersion:1,commitmentPrinciple:commitments.principle,commitments:[...commitments.items],weeks:Array.from({length:12},()=>({metrics:structuredClone(metrics),weights:{...areaWeights},entries:[],reviewed:false,note:''})),goals:[{name:'Clientes fechados',area:'Empresa',value:0,target:8,initial:0,unit:'clientes',stock:false,confirmed:false,initialConfirmed:true},{name:'Caixa da empresa',area:'Empresa',value:0,target:16000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Receita nova',area:'Empresa',value:0,target:0,initial:0,unit:'R$',stock:false,confirmed:false,initialConfirmed:true},{name:'Investimentos',area:'Pessoal',value:0,target:25000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Peso corporal',area:'Saúde',value:0,target:70,initial:0,unit:'kg',stock:true,confirmed:false,initialConfirmed:false}],life:structuredClone(lifeDefaults),strategies:'Não distribuir lucro.\nViver apenas com pró-labore de R$3.200.\nProspectar consistentemente durante o período.'};
 }
 export function virtualTime(period:Period,now:number) {
- const start=Date.parse(period.start),end=Date.parse(period.end);const progress=period.closed?1:Math.max(0,Math.min(1,(now-start)/(end-start)));
+ const start=Date.parse(period.start),end=Date.parse(period.end),totalDays=Math.ceil((end-start)/86400000);const progress=period.closed?1:Math.max(0,Math.min(1,(now-start)/(end-start)));
  const virtual=new Date(Date.UTC(2025,0,1)+Math.min(progress*365*86400000,365*86400000-60000));
- return {progress,virtual,future:now<start,ended:period.closed||now>=end,week:Math.min(12,Math.max(1,Math.floor((now-start)/604800000)+1)),day:Math.min(84,Math.max(1,Math.floor((now-start)/86400000)+1)),remaining:Math.max(0,Math.ceil((end-now)/86400000)),virtualDays:progress*365};
+ return {progress,virtual,future:now<start,ended:period.closed||now>=end,week:now>=end?12:Math.min(12,Math.max(1,weekIndexForDate(period,new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))+1)),day:Math.min(totalDays,Math.max(1,Math.floor((now-start)/86400000)+1)),totalDays,remaining:Math.max(0,Math.ceil((end-now)/86400000)),virtualDays:progress*365};
 }
 export function scoreWeek(week:Week) {
  const total:Record<string,number>={weekly:week.reviewed?1:0};
@@ -46,6 +46,7 @@ export function initialState():State {
 }
 // Replace only the known demonstration. Preserve existing real periods and user settings.
 export function migrateDemoState(state:State):State {
+ for(const p of state.periods)migrateSundayCalendar(p);
  applyRequestedWeights(state);
  for(const p of state.periods)if(Date.parse(p.start)===Date.parse(initialPeriod.start))correctWeekOneTargets(p);
  const real=state.periods.filter(p=>p.name!=='Período demonstrativo');
@@ -88,7 +89,7 @@ export function correctWeekOneTargets(period:Period):void {
 
 export function scorePeriod(period:Period,now=Date.now()) {
  const last=virtualTime(period,now).week-1;
- const included=period.weeks.slice(0,last+1).map((w,i)=>{const plan=dailyTargets(period,i),dates=weekDates(period,i),today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});return {...w,metrics:w.metrics.map(m=>({...m,target:dates.reduce((s,d,j)=>s+(d<=today?plan[m.id]?.[j]||0:0),0)})),reviewed:w.reviewed&&dates[6]<=today};});
+ const included=period.weeks.slice(0,last+1).map((w,i)=>{const plan=dailyTargets(period,i),dates=weekDates(period,i),today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});return {...w,metrics:w.metrics.map(m=>({...m,target:dates.reduce((s,d,j)=>s+(d<=today?plan[m.id]?.[j]||0:0),0)})),reviewed:w.reviewed&&dates[dates.length-1]<=today};});
  const combined:Week={metrics:[],weights:{...included[0].weights},entries:included.flatMap(w=>w.entries.filter(e=>Date.parse(e.date+'T00:00:00-03:00')<=now)),reviewed:false,note:''};
  const byId=new Map<string,Metric>();
  for(const w of included){for(const m of w.metrics){if(!m.active)continue;const existing=byId.get(m.id);if(existing){existing.target+=m.target;existing.weight+=m.weight;}else byId.set(m.id,{...m});}}
@@ -104,23 +105,60 @@ export function scorePeriod(period:Period,now=Date.now()) {
  return {...result,weights:combined.weights,entries:combined.entries};
 }
 
-export function weekDates(period:Period,index:number):string[]{return Array.from({length:7},(_,d)=>new Date(Date.parse(period.start)+(index*7+d)*86400000).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}));}
+export function weekBounds(period:Pick<Period,'start'>,index:number):{start:string;end:string}{
+ const startDay=new Date(period.start).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+ const weekday=new Date(startDay+'T12:00:00-03:00').getUTCDay();
+ const firstEnd=Date.parse(startDay+'T00:00:00-03:00')+(7-(weekday+6)%7)*86400000;
+ return {start:index===0?period.start:new Date(firstEnd+(index-1)*604800000).toISOString(),end:new Date(firstEnd+index*604800000).toISOString()};
+}
+export function weekIndexForDate(period:Period,date:string):number {
+ if(date<new Date(period.start).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))return -1;
+ const time=Date.parse(date+'T12:00:00-03:00');
+ if(time>=Date.parse(period.end))return -1;
+ const firstEnd=Date.parse(weekBounds(period,0).end);
+ return time<firstEnd?0:Math.min(11,Math.floor((time-firstEnd)/604800000)+1);
+}
+export function weekDates(period:Period,index:number):string[]{const bounds=weekBounds(period,index);const startDay=new Date(bounds.start).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});const first=Date.parse(startDay+'T00:00:00-03:00');return Array.from({length:Math.ceil((Date.parse(bounds.end)-first)/86400000)},(_,d)=>new Date(first+d*86400000).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}));}
+export function migrateSundayCalendar(period:Period):void {
+ if(period.calendarVersion===1)return;
+ const entries=period.weeks.flatMap(w=>w.entries);
+ // Keep the original snapshots as an archive, then remap daily targets by date.
+ const old=structuredClone(period.weeks);
+ (period as Period&{previousCalendarWeeks?:Week[]}).previousCalendarWeeks=old;
+ period.end=weekBounds(period,11).end;
+ period.weeks.forEach((w,index)=>{
+  w.entries=[];
+  if(!old.some(w=>w.dailyTargets))return;
+  const dates=weekDates(period,index);const targets:Record<string,number[]>={};
+  for(const m of w.metrics){targets[m.id]=dates.map(date=>{
+   const offset=Math.floor((Date.parse(date+'T12:00:00-03:00')-Date.parse(period.start))/86400000);
+   const oldWeek=old[index],day=offset-index*7;
+   return day>=0&&day<7?(oldWeek?.dailyTargets?.[m.id]?.[day]??0):0;
+  });
+  if(targets[m.id].reduce((s,v)=>s+v,0)===0&&m.target>0)delete targets[m.id];
+  }
+  w.dailyTargets=targets;
+ });
+ for(const e of entries){const index=weekIndexForDate(period,e.date);if(index>=0)period.weeks[index].entries.push(e);else{const extended=period as Period&{unassignedEntries?:Entry[]};extended.unassignedEntries=[...(extended.unassignedEntries||[]),e];}}
+ period.calendarVersion=1;
+}
+
 export function dailyTargets(period:Period,index:number):Record<string,number[]>{
  const week=period.weeks[index],dates=weekDates(period,index),result:Record<string,number[]>={};
  for(const m of week.metrics){
   const stored=week.dailyTargets?.[m.id];
   const sum=stored?.reduce((s,v)=>s+v,0)||0;
-  if(stored&&Math.abs(sum-m.target)<.00001){result[m.id]=[...stored];continue;}
-  if(stored&&sum>0){result[m.id]=stored.map(v=>v*m.target/sum);continue;}
+  if(stored&&stored.length===dates.length&&Math.abs(sum-m.target)<.00001){result[m.id]=[...stored];continue;}
+  if(stored&&stored.length===dates.length&&sum>0){result[m.id]=stored.map(v=>v*m.target/sum);continue;}
   const weekdays=dates.map(d=>new Date(d+'T12:00:00-03:00').getUTCDay());
   let days:number[];
   if(m.id==='leads')days=week.commercialDays?.online??(index===1&&Date.parse(period.start)===Date.parse(initialPeriod.start)?dailyPatterns.initialPeriodWeek2.online:dailyPatterns.online);
   else if(m.id==='visits')days=week.commercialDays?.presential??(index===1&&Date.parse(period.start)===Date.parse(initialPeriod.start)?dailyPatterns.initialPeriodWeek2.presential:dailyPatterns.presential);
-  else if(m.id==='weekly')days=[weekdays[6]];
+  else if(m.id==='weekly')days=[weekdays[weekdays.length-1]];
   else if(['updates','makers','daily'].includes(m.id))days=weekdays;
   else days=weekdays.slice(0,5);
   const slots=weekdays.map((day,i)=>days.includes(day)?i:-1).filter(i=>i>=0);
-  result[m.id]=Array(7).fill(0);
+  result[m.id]=Array(dates.length).fill(0);
   if(slots.length)slots.forEach((i,j)=>{result[m.id][i]=Number.isInteger(m.target)?Math.floor(m.target/slots.length)+(j<m.target%slots.length?1:0):m.target/slots.length;});
  }
  return result;
@@ -128,7 +166,7 @@ export function dailyTargets(period:Period,index:number):Record<string,number[]>
 export function scoreWeekToDate(period:Period,index:number,now=Date.now(),day?:string){
  const source=period.weeks[index],dates=weekDates(period,index),today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),plan=dailyTargets(period,index);
  const selected=dates.map((d,i)=>(day?d===day:d<=today)?i:-1).filter(i=>i>=0);
- const week:Week={...source,metrics:source.metrics.map(m=>({...m,target:selected.reduce((s,i)=>s+(plan[m.id]?.[i]||0),0)})),entries:source.entries.filter(e=>day?e.date===day:e.date<=today),reviewed:source.reviewed&&selected.includes(6)};
+ const week:Week={...source,metrics:source.metrics.map(m=>({...m,target:selected.reduce((s,i)=>s+(plan[m.id]?.[i]||0),0)})),entries:source.entries.filter(e=>day?e.date===day:e.date<=today),reviewed:source.reviewed&&selected.includes(dates.length-1)};
  const result=scoreWeek(week);for(const m of result.metrics){let past=selected.reduce((s,i)=>s+(dates[i]<today?plan[m.id]?.[i]||0:0),0);if(m.id==='reviews')past=scoreWeek({...week,entries:week.entries.filter(e=>e.date<today)}).total.calls||0;m.overdue=Math.max(0,past-m.value);m.dueToday=selected.reduce((s,i)=>s+(dates[i]===today?plan[m.id]?.[i]||0:0),0);}
  return {...result,entries:week.entries,weights:week.weights};
 }
