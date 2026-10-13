@@ -33,3 +33,6 @@ O antigo período demonstrativo é substituído pelo período real, preservando 
 
 ## Metas por semana
 Configurações inclui a tabela de planejamento comercial com as 12 semanas editáveis. Metas, pesos e ativação editados afetam apenas a semana escolhida. O Período 1 recebe o plano comercial fornecido pelo usuário em `config/commercial-plan.json`; na migração, semanas com registros ou metas personalizadas são preservadas. O botão Aplicar metas do PDF reaplica leads e empresas apenas nas semanas vazias. Calls esperadas são estimativas, sem importação como metas. Semanas continuam sendo blocos de sete dias desde 06/10, conforme escolhido pelo usuário.
+
+## Classificação dos indicadores comerciais
+`config/metric-roles.json` define calls agendadas e realizadas como acompanhamento. Apenas prospecções online, presenciais e revisões de call compõem o score Comercial. A meta de revisões continua derivada das calls realizadas. A classificação aplica-se também a documentos existentes; valores e metas de calls são preservados sem contribuição ao score.

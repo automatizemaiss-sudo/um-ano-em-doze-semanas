@@ -1,5 +1,7 @@
+import metricRoles from '../config/metric-roles.json' with {type:'json'};
 import initialPeriod from '../config/initial-period.json' with {type:'json'};
 import commercialPlan from '../config/commercial-plan.json' with {type:'json'};
+export function isLeadMetric(metric:{id:string}):boolean{return metricRoles[metric.id as keyof typeof metricRoles]!=='tracking';}
 export const areas = ['Comercial','Saúde','Estudo','Disciplina'];
 export type Metric = {id:string; name:string; area:string; unit:string; target:number; weight:number; active:boolean};
 export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; trainings:{type:string; quality:number; duration:number; note:string}[]};
@@ -31,7 +33,7 @@ export function scoreWeek(week:Week) {
  const total:Record<string,number>={weekly:week.reviewed?1:0};
  for(const e of week.entries){for(const k of ['leads','visits','scheduled','calls','reviews','minutes','updates','makers','daily'])total[k]=(total[k]||0)+Number(e[k as keyof Entry]);for(const t of e.trainings){total.trainings=(total.trainings||0)+1;total.strength=(total.strength||0)+(t.type==='Musculação'?1:0);total.quality=(total.quality||0)+(t.quality>=4?1:0);total.perfect=(total.perfect||0)+(t.quality===5?1:0);}}
  const metrics=week.metrics.filter(m=>m.active).map(m=>{const target=m.id==='reviews'?(total.calls||0):m.target;const value=total[m.id]||0;return {...m,target,value,ratio:target>0?value/target:null};});
- const scores:Record<string,number|null>={};for(const area of areas){const applicable=metrics.filter(m=>m.area===area&&m.ratio!==null&&m.weight>0);scores[area]=applicable.length?applicable.reduce((s,m)=>s+Math.min(1,m.ratio!)*m.weight,0)/applicable.reduce((s,m)=>s+m.weight,0):null;}
+ const scores:Record<string,number|null>={};for(const area of areas){const applicable=metrics.filter(m=>isLeadMetric(m)&&m.area===area&&m.ratio!==null&&m.weight>0);scores[area]=applicable.length?applicable.reduce((s,m)=>s+Math.min(1,m.ratio!)*m.weight,0)/applicable.reduce((s,m)=>s+m.weight,0):null;}
  const applicable=areas.filter(a=>scores[a]!==null&&week.weights[a]>0);const overall=applicable.length?applicable.reduce((s,a)=>s+scores[a]!*week.weights[a],0)/applicable.reduce((s,a)=>s+week.weights[a],0):null;
  return {metrics,scores,overall,total};
 }
