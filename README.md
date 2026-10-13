@@ -30,3 +30,6 @@ Veja `docs/ARQUITETURA.md` para cálculo, modelagem e decisões.
 
 ## Limites atuais
 O antigo período demonstrativo é substituído pelo período real, preservando um backup local em `12weeks-demo-archive` e mantendo períodos reais existentes. Resultados e notas finais são valores atuais, sem trilha temporal de alterações no documento. Não há upload de fotos, integrações externas nem comparação de radar entre períodos. Metas diárias booleanas usam quantidade prevista de dias; não restringem dias específicos da semana. Novos tipos e definições de métrica precisam ser adicionados ao modelo antes de aparecerem na interface. Encerrar um período preserva a consulta, mas ainda permite corrigir registros históricos.
+
+## Metas por semana
+Configurações inclui a tabela de planejamento comercial com as 12 semanas editáveis. Metas, pesos e ativação editados afetam apenas a semana escolhida. O Período 1 recebe o plano comercial fornecido pelo usuário em `config/commercial-plan.json`; na migração, semanas com registros ou metas personalizadas são preservadas. O botão Aplicar metas do PDF reaplica leads e empresas apenas nas semanas vazias. Calls esperadas são estimativas, sem importação como metas. Semanas continuam sendo blocos de sete dias desde 06/10, conforme escolhido pelo usuário.

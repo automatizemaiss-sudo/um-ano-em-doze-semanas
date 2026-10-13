@@ -1,11 +1,12 @@
 import initialPeriod from '../config/initial-period.json' with {type:'json'};
+import commercialPlan from '../config/commercial-plan.json' with {type:'json'};
 export const areas = ['Comercial','Saúde','Estudo','Disciplina'];
 export type Metric = {id:string; name:string; area:string; unit:string; target:number; weight:number; active:boolean};
 export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; trainings:{type:string; quality:number; duration:number; note:string}[]};
 export type Week = {metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
-export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean};
+export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number};
 export type State = {periods:Period[]; selected:string; defaults:Metric[]; weights:Record<string,number>; green:number; yellow:number};
 export const defaults:Metric[] = [
  ['leads','Leads prospectados online','Comercial','leads',60,3],['visits','Prospecções presenciais','Comercial','empresas',8,2],['scheduled','Calls agendadas','Comercial','calls',5,2],['calls','Calls realizadas','Comercial','calls',4,2],['reviews','Revisões de call','Comercial','revisões',0,1],
@@ -36,13 +37,25 @@ export function scoreWeek(week:Week) {
 }
 export function projection(goal:Goal,progress:number){if(progress<=0||goal.unit==='kg'||goal.confirmed===false||(goal.stock&&goal.initialConfirmed===false))return null;return goal.stock?goal.initial+(goal.value-goal.initial)/progress:goal.value/progress;}
 export function initialState():State {
- const p=makePeriod(initialPeriod.name,initialPeriod.start);
+ const p=makePeriod(initialPeriod.name,initialPeriod.start);applyCommercialPlan(p);
  return {periods:[p],selected:p.id,defaults:structuredClone(defaults),weights:{...weights},green:85,yellow:70};
 }
 // Replace only the known demonstration. Preserve existing real periods and user settings.
 export function migrateDemoState(state:State):State {
  const real=state.periods.filter(p=>p.name!=='Período demonstrativo');
- if(real.length===state.periods.length)return state;
- if(!real.length){const p=makePeriod(initialPeriod.name,initialPeriod.start,state.defaults,state.weights);return {...state,periods:[p],selected:p.id};}
+ if(real.length===state.periods.length){for(const p of real){if(p.start===initialPeriod.start&&!p.commercialPlanVersion)applyCommercialPlan(p,true);}return state;}
+ if(!real.length){const p=makePeriod(initialPeriod.name,initialPeriod.start,state.defaults,state.weights);applyCommercialPlan(p,true);return {...state,periods:[p],selected:p.id};}
  return {...state,periods:real,selected:real.some(p=>p.id===state.selected)?state.selected:real[0].id};
+}
+
+export function applyCommercialPlan(period:Period,preserveCustom=false):void {
+ period.weeks.forEach((w,i)=>{
+  if(w.entries.length||w.reviewed)return;
+  for(const m of w.metrics){
+   if(!['leads','visits'].includes(m.id))continue;
+   if(preserveCustom&&m.target!==defaults.find(d=>d.id===m.id)?.target)continue;
+   m.target=m.id==='leads'?commercialPlan[i].leads:commercialPlan[i].visits;
+  }
+ });
+ period.commercialPlanVersion=1;
 }

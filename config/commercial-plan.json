@@ -1,0 +1,14 @@
+[
+ {"week":1,"dates":"06–11/10","leads":20,"visits":0,"expectedCalls":1},
+ {"week":2,"dates":"12–18/10","leads":40,"visits":8,"expectedCalls":2},
+ {"week":3,"dates":"19–25/10","leads":60,"visits":8,"expectedCalls":3},
+ {"week":4,"dates":"26/10–01/11","leads":60,"visits":8,"expectedCalls":3},
+ {"week":5,"dates":"02–08/11","leads":40,"visits":8,"expectedCalls":2},
+ {"week":6,"dates":"09–15/11","leads":60,"visits":8,"expectedCalls":3},
+ {"week":7,"dates":"16–22/11","leads":40,"visits":4,"expectedCalls":2},
+ {"week":8,"dates":"23–29/11","leads":60,"visits":8,"expectedCalls":3},
+ {"week":9,"dates":"30/11–06/12","leads":60,"visits":8,"expectedCalls":3},
+ {"week":10,"dates":"07–13/12","leads":60,"visits":8,"expectedCalls":3},
+ {"week":11,"dates":"14–20/12","leads":40,"visits":8,"expectedCalls":2},
+ {"week":12,"dates":"21–27/12","leads":0,"visits":0,"expectedCalls":0}
+]
