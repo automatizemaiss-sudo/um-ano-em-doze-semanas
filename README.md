@@ -10,7 +10,7 @@ Abra http://localhost:3000. O Período 1 começa em 06/10/2026 às 00:00 (São P
 
 ## Supabase
 1. Crie um projeto Supabase e execute `supabase/schema.sql` no SQL Editor.
-2. Copie `.env.example` para `.env.local` e informe URL e chave pública anon do projeto. Nunca use service_role no cliente.
+2. Copie `.env.example` para `.env.local` e informe NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY. O nome legado NEXT_PUBLIC_SUPABASE_ANON_KEY também é aceito. Nunca use service_role no cliente.
 3. Em Authentication, habilite **Anonymous Sign-Ins**. Não é necessário e-mail/senha.
 4. Reinicie a aplicação. Uma sessão anônima é criada automaticamente e os registros locais são enviados à nuvem quando não existe um documento remoto.
 
@@ -36,3 +36,8 @@ Configurações inclui a tabela de planejamento comercial com as 12 semanas edit
 
 ## Classificação dos indicadores comerciais
 `config/metric-roles.json` define calls agendadas e realizadas como acompanhamento. Apenas prospecções online, presenciais e revisões de call compõem o score Comercial. A meta de revisões continua derivada das calls realizadas. A classificação aplica-se também a documentos existentes; valores e metas de calls são preservados sem contribuição ao score.
+
+## Placar acumulado, qualidade e importação
+Placar abre no período completo até a semana atual. O filtro permite consultar cada semana na mesma tela; não há aba Semana atual. O acumulado soma realizados e metas de semanas incluídas, usando médias dos pesos dos snapshots; a meta da semana atual entra inteira. A composição explica esta regra. Qualidade comercial separa Online e Presencial: respostas/prospecções, agendamentos/prospecções e vendas/calls realizadas de cada canal. Registros antigos sem canal permanecem sem atribuição. Respostas e vendas ausentes aparecem como não informadas.
+
+Configurações → Importar backup restaura JSON válido. Períodos do backup substituem os de mesmo ID; outros períodos são mantidos. Um documento anterior é preservado localmente em `12weeks-preimport-backup`. Importação tenta salvar no Supabase; se indisponível, salva localmente e informa a pendência. Conexão e backup → Sincronizar com Supabase grava e verifica a leitura. O schema mínimo está em `supabase/dashboard-state.sql`. Perspectiva permite editar texto geral, nome, descrição e notas de cada categoria.

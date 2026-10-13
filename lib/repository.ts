@@ -1,9 +1,9 @@
 import {createClient} from '@supabase/supabase-js';
 import type {State} from './engine';
-const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-export const supabase=url&&key?createClient(url,key):null;
+const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export const supabase=url&&key?createClient(url,key,{global:{fetch:(input,init)=>fetch(input,{...init,signal:init?.signal??AbortSignal.timeout(10000)})}}):null;
 export async function loadRemote(userId:string):Promise<State|null>{if(!supabase)return null;const {data,error}=await supabase.from('dashboard_states').select('state').eq('user_id',userId).maybeSingle();if(error)throw error;return data?.state||null;}
-export async function saveRemote(userId:string,state:State){if(!supabase)return;const {error}=await supabase.from('dashboard_states').upsert({user_id:userId,state,updated_at:new Date().toISOString()});if(error)throw error;}
+export async function saveRemote(userId:string,state:State){if(!supabase)return;const {error}=await supabase.from('dashboard_states').upsert({user_id:userId,state,updated_at:new Date().toISOString()},{onConflict:'user_id'});if(error)throw error;}
 
 let sessionPromise:Promise<string>|null=null;
 export function ensureSession():Promise<string>{

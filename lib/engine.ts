@@ -5,11 +5,11 @@ import commercialPlan from '../config/commercial-plan.json' with {type:'json'};
 export function isLeadMetric(metric:{id:string}):boolean{return metricRoles[metric.id as keyof typeof metricRoles]!=='tracking';}
 export const areas = ['Comercial','Saúde','Estudo','Disciplina'];
 export type Metric = {id:string; name:string; area:string; unit:string; target:number; weight:number; active:boolean};
-export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; trainings:{type:string; quality:number; duration:number; note:string}[]};
+export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; responses?:number; sales?:number; channels?:Partial<Record<'online'|'presential',Record<string,number>>>; trainings:{type:string; quality:number; duration:number; note:string}[]};
 export type Week = {metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
-export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; commitmentPrinciple?:string; commitments?:string[]};
+export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; commitmentPrinciple?:string; commitments?:string[]; perspective?:string};
 export type State = {periods:Period[]; selected:string; defaults:Metric[]; weights:Record<string,number>; green:number; yellow:number; areaWeightsVersion?:number};
 export const defaults:Metric[] = [
  ['leads','Leads prospectados online','Comercial','leads',60,3],['visits','Prospecções presenciais','Comercial','empresas',8,2],['scheduled','Calls agendadas','Comercial','calls',5,2],['calls','Calls realizadas','Comercial','calls',4,2],['reviews','Revisões de call','Comercial','revisões',0,1],
@@ -32,7 +32,7 @@ export function virtualTime(period:Period,now:number) {
 }
 export function scoreWeek(week:Week) {
  const total:Record<string,number>={weekly:week.reviewed?1:0};
- for(const e of week.entries){for(const k of ['leads','visits','scheduled','calls','reviews','minutes','updates','makers','daily'])total[k]=(total[k]||0)+Number(e[k as keyof Entry]);for(const t of e.trainings){total.trainings=(total.trainings||0)+1;total.strength=(total.strength||0)+(t.type==='Musculação'?1:0);total.quality=(total.quality||0)+(t.quality>=4?1:0);total.perfect=(total.perfect||0)+(t.quality===5?1:0);}}
+ for(const e of week.entries){for(const source of ['online','presential'] as const){for(const [field,value] of Object.entries(e.channels?.[source]||{})){if(value!==undefined)total[source+'_'+field]=(total[source+'_'+field]||0)+value;}}for(const k of ['leads','visits','scheduled','calls','reviews','minutes','updates','makers','daily','responses','sales']){if((k==='sales'||k==='responses')&&e[k]===undefined&&!Object.values(e.channels||{}).some(c=>c[k]!==undefined))continue;total[k]=(total[k]||0)+Math.max(Number(e[k as keyof Entry]||0),['scheduled','calls','sales','responses'].includes(k)?Object.values(e.channels||{}).reduce((s,c)=>s+(c[k]||0),0):0);}for(const t of e.trainings){total.trainings=(total.trainings||0)+1;total.strength=(total.strength||0)+(t.type==='Musculação'?1:0);total.quality=(total.quality||0)+(t.quality>=4?1:0);total.perfect=(total.perfect||0)+(t.quality===5?1:0);}}
  const metrics=week.metrics.filter(m=>m.active).map(m=>{const target=m.id==='reviews'?(total.calls||0):m.target;const value=total[m.id]||0;return {...m,target,value,ratio:target>0?value/target:null};});
  const scores:Record<string,number|null>={};for(const area of areas){const applicable=metrics.filter(m=>isLeadMetric(m)&&m.area===area&&m.ratio!==null&&m.weight>0);scores[area]=applicable.length?applicable.reduce((s,m)=>s+Math.min(1,m.ratio!)*m.weight,0)/applicable.reduce((s,m)=>s+m.weight,0):null;}
  const applicable=areas.filter(a=>scores[a]!==null&&week.weights[a]>0);const overall=applicable.length?applicable.reduce((s,a)=>s+scores[a]!*week.weights[a],0)/applicable.reduce((s,a)=>s+week.weights[a],0):null;
@@ -83,4 +83,20 @@ export function correctWeekOneTargets(period:Period):void {
  if(period.weekOneTargetsVersion===1)return;
  for(const m of period.weeks[0].metrics){if(m.id==='scheduled')m.target=1;if(m.id==='calls')m.target=0;}
  period.weekOneTargetsVersion=1;
+}
+
+export function scorePeriod(period:Period,now=Date.now()) {
+ const last=virtualTime(period,now).week-1;
+ const included=period.weeks.slice(0,last+1);
+ const combined:Week={metrics:[],weights:{...included[0].weights},entries:included.flatMap(w=>w.entries.filter(e=>Date.parse(e.date+'T00:00:00-03:00')<=now)),reviewed:false,note:''};
+ const byId=new Map<string,Metric>();
+ for(const w of included){for(const m of w.metrics){if(!m.active)continue;const existing=byId.get(m.id);if(existing){existing.target+=m.target;existing.weight+=m.weight;}else byId.set(m.id,{...m});}}
+ combined.metrics=[...byId.values()].map(m=>({...m,weight:m.weight/included.length}));
+ for(const a of areas)combined.weights[a]=included.reduce((s,w)=>s+w.weights[a],0)/included.length;
+ const result=scoreWeek(combined);
+ const weekly=result.metrics.find(m=>m.id==='weekly');if(weekly){weekly.value=included.filter(w=>w.reviewed).length;weekly.ratio=weekly.target>0?weekly.value/weekly.target:null;}
+ for(const a of areas){const ms=result.metrics.filter(m=>isLeadMetric(m)&&m.area===a&&m.ratio!==null&&m.weight>0);result.scores[a]=ms.length?ms.reduce((s,m)=>s+Math.min(1,m.ratio!)*m.weight,0)/ms.reduce((s,m)=>s+m.weight,0):null;}
+ const eligible=areas.filter(a=>result.scores[a]!==null&&combined.weights[a]>0);
+ result.overall=eligible.length?eligible.reduce((s,a)=>s+result.scores[a]!*combined.weights[a],0)/eligible.reduce((s,a)=>s+combined.weights[a],0):null;
+ return {...result,weights:combined.weights,entries:combined.entries};
 }
