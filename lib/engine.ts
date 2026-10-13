@@ -6,7 +6,7 @@ export type Entry = {date:string; leads:number; visits:number; scheduled:number;
 export type Week = {metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
-export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number};
+export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number};
 export type State = {periods:Period[]; selected:string; defaults:Metric[]; weights:Record<string,number>; green:number; yellow:number; areaWeightsVersion?:number};
 export const defaults:Metric[] = [
  ['leads','Leads prospectados online','Comercial','leads',60,3],['visits','Prospecções presenciais','Comercial','empresas',8,2],['scheduled','Calls agendadas','Comercial','calls',5,2],['calls','Calls realizadas','Comercial','calls',4,2],['reviews','Revisões de call','Comercial','revisões',0,1],
@@ -37,15 +37,16 @@ export function scoreWeek(week:Week) {
 }
 export function projection(goal:Goal,progress:number){if(progress<=0||goal.unit==='kg'||goal.confirmed===false||(goal.stock&&goal.initialConfirmed===false))return null;return goal.stock?goal.initial+(goal.value-goal.initial)/progress:goal.value/progress;}
 export function initialState():State {
- const p=makePeriod(initialPeriod.name,initialPeriod.start);applyCommercialPlan(p);
+ const p=makePeriod(initialPeriod.name,initialPeriod.start);applyCommercialPlan(p);correctWeekOneTargets(p);
  return {periods:[p],selected:p.id,defaults:structuredClone(defaults),weights:{...weights},green:85,yellow:70,areaWeightsVersion:1};
 }
 // Replace only the known demonstration. Preserve existing real periods and user settings.
 export function migrateDemoState(state:State):State {
  applyRequestedWeights(state);
+ for(const p of state.periods)if(p.start===initialPeriod.start)correctWeekOneTargets(p);
  const real=state.periods.filter(p=>p.name!=='Período demonstrativo');
  if(real.length===state.periods.length){for(const p of real){if(p.start===initialPeriod.start&&!p.commercialPlanVersion)applyCommercialPlan(p,true);}return state;}
- if(!real.length){const p=makePeriod(initialPeriod.name,initialPeriod.start,state.defaults,state.weights);applyCommercialPlan(p,true);return {...state,periods:[p],selected:p.id};}
+ if(!real.length){const p=makePeriod(initialPeriod.name,initialPeriod.start,state.defaults,state.weights);applyCommercialPlan(p,true);correctWeekOneTargets(p);return {...state,periods:[p],selected:p.id};}
  return {...state,periods:real,selected:real.some(p=>p.id===state.selected)?state.selected:real[0].id};
 }
 
@@ -70,4 +71,10 @@ export function applyRequestedWeights(state:State):void {
   for(const w of p.weeks){if(w.entries.length||w.reviewed)continue;w.weights.Estudo=25;w.weights.Disciplina=5;}
   p.areaWeightsVersion=1;
  }
+}
+
+export function correctWeekOneTargets(period:Period):void {
+ if(period.weekOneTargetsVersion===1)return;
+ for(const m of period.weeks[0].metrics){if(m.id==='scheduled')m.target=1;if(m.id==='calls')m.target=0;}
+ period.weekOneTargetsVersion=1;
 }
