@@ -1,3 +1,4 @@
+import dailyPatterns from '../config/daily-patterns.json' with {type:'json'};
 import commitments from '../config/commitments.json' with {type:'json'};
 import metricRoles from '../config/metric-roles.json' with {type:'json'};
 import initialPeriod from '../config/initial-period.json' with {type:'json'};
@@ -6,7 +7,7 @@ export function isLeadMetric(metric:{id:string}):boolean{return metricRoles[metr
 export const areas = ['Comercial','Saúde','Estudo','Disciplina'];
 export type Metric = {id:string; name:string; area:string; unit:string; target:number; weight:number; active:boolean};
 export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; responses?:number; sales?:number; channels?:Partial<Record<'online'|'presential',Record<string,number>>>; trainings:{type:string; quality:number; duration:number; note:string}[]};
-export type Week = {metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string};
+export type Week = {metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string; dailyTargets?:Record<string,number[]>; commercialDays?:{online:number[];presential:number[]}};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
 export type Period = {id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; commitmentPrinciple?:string; commitments?:string[]; perspective?:string};
@@ -33,7 +34,7 @@ export function virtualTime(period:Period,now:number) {
 export function scoreWeek(week:Week) {
  const total:Record<string,number>={weekly:week.reviewed?1:0};
  for(const e of week.entries){for(const source of ['online','presential'] as const){for(const [field,value] of Object.entries(e.channels?.[source]||{})){if(value!==undefined)total[source+'_'+field]=(total[source+'_'+field]||0)+value;}}for(const k of ['leads','visits','scheduled','calls','reviews','minutes','updates','makers','daily','responses','sales']){if((k==='sales'||k==='responses')&&e[k]===undefined&&!Object.values(e.channels||{}).some(c=>c[k]!==undefined))continue;total[k]=(total[k]||0)+Math.max(Number(e[k as keyof Entry]||0),['scheduled','calls','sales','responses'].includes(k)?Object.values(e.channels||{}).reduce((s,c)=>s+(c[k]||0),0):0);}for(const t of e.trainings){total.trainings=(total.trainings||0)+1;total.strength=(total.strength||0)+(t.type==='Musculação'?1:0);total.quality=(total.quality||0)+(t.quality>=4?1:0);total.perfect=(total.perfect||0)+(t.quality===5?1:0);}}
- const metrics=week.metrics.filter(m=>m.active).map(m=>{const target=m.id==='reviews'?(total.calls||0):m.target;const value=total[m.id]||0;return {...m,target,value,ratio:target>0?value/target:null};});
+ const metrics=week.metrics.filter(m=>m.active).map(m=>{const target=m.id==='reviews'?(total.calls||0):m.target;const value=total[m.id]||0;return {...m,target,value,ratio:target>0?value/target:null,overdue:0,dueToday:0};});
  const scores:Record<string,number|null>={};for(const area of areas){const applicable=metrics.filter(m=>isLeadMetric(m)&&m.area===area&&m.ratio!==null&&m.weight>0);scores[area]=applicable.length?applicable.reduce((s,m)=>s+Math.min(1,m.ratio!)*m.weight,0)/applicable.reduce((s,m)=>s+m.weight,0):null;}
  const applicable=areas.filter(a=>scores[a]!==null&&week.weights[a]>0);const overall=applicable.length?applicable.reduce((s,a)=>s+scores[a]!*week.weights[a],0)/applicable.reduce((s,a)=>s+week.weights[a],0):null;
  return {metrics,scores,overall,total};
@@ -87,7 +88,7 @@ export function correctWeekOneTargets(period:Period):void {
 
 export function scorePeriod(period:Period,now=Date.now()) {
  const last=virtualTime(period,now).week-1;
- const included=period.weeks.slice(0,last+1);
+ const included=period.weeks.slice(0,last+1).map((w,i)=>{const plan=dailyTargets(period,i),dates=weekDates(period,i),today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});return {...w,metrics:w.metrics.map(m=>({...m,target:dates.reduce((s,d,j)=>s+(d<=today?plan[m.id]?.[j]||0:0),0)})),reviewed:w.reviewed&&dates[6]<=today};});
  const combined:Week={metrics:[],weights:{...included[0].weights},entries:included.flatMap(w=>w.entries.filter(e=>Date.parse(e.date+'T00:00:00-03:00')<=now)),reviewed:false,note:''};
  const byId=new Map<string,Metric>();
  for(const w of included){for(const m of w.metrics){if(!m.active)continue;const existing=byId.get(m.id);if(existing){existing.target+=m.target;existing.weight+=m.weight;}else byId.set(m.id,{...m});}}
@@ -98,5 +99,36 @@ export function scorePeriod(period:Period,now=Date.now()) {
  for(const a of areas){const ms=result.metrics.filter(m=>isLeadMetric(m)&&m.area===a&&m.ratio!==null&&m.weight>0);result.scores[a]=ms.length?ms.reduce((s,m)=>s+Math.min(1,m.ratio!)*m.weight,0)/ms.reduce((s,m)=>s+m.weight,0):null;}
  const eligible=areas.filter(a=>result.scores[a]!==null&&combined.weights[a]>0);
  result.overall=eligible.length?eligible.reduce((s,a)=>s+result.scores[a]!*combined.weights[a],0)/eligible.reduce((s,a)=>s+combined.weights[a],0):null;
+ const today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+ for(const m of result.metrics){let past=0;let dueToday=0;period.weeks.slice(0,last+1).forEach((w,i)=>{const plan=dailyTargets(period,i),dates=weekDates(period,i);dates.forEach((d,j)=>{if(d<today)past+=plan[m.id]?.[j]||0;if(d===today)dueToday+=plan[m.id]?.[j]||0;});});if(m.id==='reviews'){past=scoreWeek({...combined,entries:combined.entries.filter(e=>e.date<today)}).total.calls||0;dueToday=(result.total.calls||0)-past;}m.overdue=Math.max(0,past-m.value);m.dueToday=dueToday;}
  return {...result,weights:combined.weights,entries:combined.entries};
+}
+
+export function weekDates(period:Period,index:number):string[]{return Array.from({length:7},(_,d)=>new Date(Date.parse(period.start)+(index*7+d)*86400000).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}));}
+export function dailyTargets(period:Period,index:number):Record<string,number[]>{
+ const week=period.weeks[index],dates=weekDates(period,index),result:Record<string,number[]>={};
+ for(const m of week.metrics){
+  const stored=week.dailyTargets?.[m.id];
+  const sum=stored?.reduce((s,v)=>s+v,0)||0;
+  if(stored&&Math.abs(sum-m.target)<.00001){result[m.id]=[...stored];continue;}
+  if(stored&&sum>0){result[m.id]=stored.map(v=>v*m.target/sum);continue;}
+  const weekdays=dates.map(d=>new Date(d+'T12:00:00-03:00').getUTCDay());
+  let days:number[];
+  if(m.id==='leads')days=week.commercialDays?.online??(index===1&&Date.parse(period.start)===Date.parse(initialPeriod.start)?dailyPatterns.initialPeriodWeek2.online:dailyPatterns.online);
+  else if(m.id==='visits')days=week.commercialDays?.presential??(index===1&&Date.parse(period.start)===Date.parse(initialPeriod.start)?dailyPatterns.initialPeriodWeek2.presential:dailyPatterns.presential);
+  else if(m.id==='weekly')days=[weekdays[6]];
+  else if(['updates','makers','daily'].includes(m.id))days=weekdays;
+  else days=weekdays.slice(0,5);
+  const slots=weekdays.map((day,i)=>days.includes(day)?i:-1).filter(i=>i>=0);
+  result[m.id]=Array(7).fill(0);
+  if(slots.length)slots.forEach((i,j)=>{result[m.id][i]=Number.isInteger(m.target)?Math.floor(m.target/slots.length)+(j<m.target%slots.length?1:0):m.target/slots.length;});
+ }
+ return result;
+}
+export function scoreWeekToDate(period:Period,index:number,now=Date.now(),day?:string){
+ const source=period.weeks[index],dates=weekDates(period,index),today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),plan=dailyTargets(period,index);
+ const selected=dates.map((d,i)=>(day?d===day:d<=today)?i:-1).filter(i=>i>=0);
+ const week:Week={...source,metrics:source.metrics.map(m=>({...m,target:selected.reduce((s,i)=>s+(plan[m.id]?.[i]||0),0)})),entries:source.entries.filter(e=>day?e.date===day:e.date<=today),reviewed:source.reviewed&&selected.includes(6)};
+ const result=scoreWeek(week);for(const m of result.metrics){let past=selected.reduce((s,i)=>s+(dates[i]<today?plan[m.id]?.[i]||0:0),0);if(m.id==='reviews')past=scoreWeek({...week,entries:week.entries.filter(e=>e.date<today)}).total.calls||0;m.overdue=Math.max(0,past-m.value);m.dueToday=selected.reduce((s,i)=>s+(dates[i]===today?plan[m.id]?.[i]||0:0),0);}
+ return {...result,entries:week.entries,weights:week.weights};
 }
