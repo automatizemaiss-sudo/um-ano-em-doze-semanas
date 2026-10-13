@@ -20,7 +20,7 @@ export const lifeDefaults:Life[]=[
 export function emptyEntry(date:string):Entry {return {date,leads:0,visits:0,scheduled:0,calls:0,reviews:0,minutes:0,updates:false,makers:false,daily:false,trainings:[]};}
 export function makePeriod(name:string,start:string,metrics=defaults,areaWeights:Record<string,number>=weights):Period {
  const end=new Date(new Date(start).getTime()+84*86400000).toISOString();
- return {id:crypto.randomUUID(),name,start,end,closed:false,areaWeightsVersion:1,weeks:Array.from({length:12},()=>({metrics:structuredClone(metrics),weights:{...areaWeights},entries:[],reviewed:false,note:''})),goals:[{name:'Clientes fechados',area:'Empresa',value:0,target:8,initial:0,unit:'clientes',stock:false,confirmed:false,initialConfirmed:true},{name:'Caixa da empresa',area:'Empresa',value:0,target:16000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Receita nova',area:'Empresa',value:0,target:0,initial:0,unit:'R$',stock:false,confirmed:false,initialConfirmed:true},{name:'Investimentos',area:'Pessoal',value:0,target:25000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Peso corporal',area:'Saúde',value:0,target:70,initial:0,unit:'kg',stock:true,confirmed:false,initialConfirmed:false}],life:structuredClone(lifeDefaults),strategies:'Não distribuir lucro.\nViver apenas com pró-labore de R$3.200.\nProspectar consistentemente durante o período.'};
+ return {id:crypto.randomUUID(),name,start,end,closed:false,areaWeightsVersion:2,weeks:Array.from({length:12},()=>({metrics:structuredClone(metrics),weights:{...areaWeights},entries:[],reviewed:false,note:''})),goals:[{name:'Clientes fechados',area:'Empresa',value:0,target:8,initial:0,unit:'clientes',stock:false,confirmed:false,initialConfirmed:true},{name:'Caixa da empresa',area:'Empresa',value:0,target:16000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Receita nova',area:'Empresa',value:0,target:0,initial:0,unit:'R$',stock:false,confirmed:false,initialConfirmed:true},{name:'Investimentos',area:'Pessoal',value:0,target:25000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Peso corporal',area:'Saúde',value:0,target:70,initial:0,unit:'kg',stock:true,confirmed:false,initialConfirmed:false}],life:structuredClone(lifeDefaults),strategies:'Não distribuir lucro.\nViver apenas com pró-labore de R$3.200.\nProspectar consistentemente durante o período.'};
 }
 export function virtualTime(period:Period,now:number) {
  const start=Date.parse(period.start),end=Date.parse(period.end);const progress=period.closed?1:Math.max(0,Math.min(1,(now-start)/(end-start)));
@@ -38,14 +38,14 @@ export function scoreWeek(week:Week) {
 export function projection(goal:Goal,progress:number){if(progress<=0||goal.unit==='kg'||goal.confirmed===false||(goal.stock&&goal.initialConfirmed===false))return null;return goal.stock?goal.initial+(goal.value-goal.initial)/progress:goal.value/progress;}
 export function initialState():State {
  const p=makePeriod(initialPeriod.name,initialPeriod.start);applyCommercialPlan(p);correctWeekOneTargets(p);
- return {periods:[p],selected:p.id,defaults:structuredClone(defaults),weights:{...weights},green:85,yellow:70,areaWeightsVersion:1};
+ return {periods:[p],selected:p.id,defaults:structuredClone(defaults),weights:{...weights},green:85,yellow:70,areaWeightsVersion:2};
 }
 // Replace only the known demonstration. Preserve existing real periods and user settings.
 export function migrateDemoState(state:State):State {
  applyRequestedWeights(state);
- for(const p of state.periods)if(p.start===initialPeriod.start)correctWeekOneTargets(p);
+ for(const p of state.periods)if(Date.parse(p.start)===Date.parse(initialPeriod.start))correctWeekOneTargets(p);
  const real=state.periods.filter(p=>p.name!=='Período demonstrativo');
- if(real.length===state.periods.length){for(const p of real){if(p.start===initialPeriod.start&&!p.commercialPlanVersion)applyCommercialPlan(p,true);}return state;}
+ if(real.length===state.periods.length){for(const p of real){if(Date.parse(p.start)===Date.parse(initialPeriod.start)&&!p.commercialPlanVersion)applyCommercialPlan(p,true);}return state;}
  if(!real.length){const p=makePeriod(initialPeriod.name,initialPeriod.start,state.defaults,state.weights);applyCommercialPlan(p,true);correctWeekOneTargets(p);return {...state,periods:[p],selected:p.id};}
  return {...state,periods:real,selected:real.some(p=>p.id===state.selected)?state.selected:real[0].id};
 }
@@ -63,13 +63,16 @@ export function applyCommercialPlan(period:Period,preserveCustom=false):void {
 }
 
 // Apply the requested distribution once, without changing recorded historical weeks.
-export function applyRequestedWeights(state:State):void {
- if(state.areaWeightsVersion===1)return;
- state.weights.Estudo=25;state.weights.Disciplina=5;state.areaWeightsVersion=1;
+export function applyRequestedWeights(state:State,now=Date.now()):void {
+ if((state.areaWeightsVersion??0)>=2)return;
+ state.weights.Estudo=25;state.weights.Disciplina=5;state.areaWeightsVersion=2;
  for(const p of state.periods){
-  if(p.areaWeightsVersion===1)continue;
-  for(const w of p.weeks){if(w.entries.length||w.reviewed)continue;w.weights.Estudo=25;w.weights.Disciplina=5;}
-  p.areaWeightsVersion=1;
+  if((p.areaWeightsVersion??0)>=2)continue;
+  const activeIndex=virtualTime(p,now).week-1;
+  if(!p.closed&&now<Date.parse(p.end)){
+   p.weeks.forEach((w,i)=>{if(i<activeIndex)return;w.weights.Estudo=25;w.weights.Disciplina=5;});
+  }
+  p.areaWeightsVersion=2;
  }
 }
 
