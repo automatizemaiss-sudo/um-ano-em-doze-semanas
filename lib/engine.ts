@@ -1,3 +1,4 @@
+import type {FinanceState} from './finance.ts';
 import {commercialStats,type CommercialRow,type CommercialData,type CommercialHours} from './commercial.ts';
 import {applyStrategy,revisedTotals,type StudySession,type StudyStage,type StudyMaterial,type BodyRecord} from './strategy.ts';
 import {trainingGrade,before2330,operationalEntries,addedMetrics,type Training,type Visit,type Meeting,type Horizon} from './rules.ts';
@@ -13,7 +14,7 @@ export type Entry = {date:string; leads:number; visits:number; scheduled:number;
 export type Week = {commercialRows?:CommercialRow[];commercialDates?:string[];commercialReviews?:Record<string,{done:boolean;note:string}>;commercialHours?:CommercialHours[];strategyVersion?:number; commercialVersion?:number; commercialConfirmed?:boolean; studyDates?:string[]; studySessions?:StudySession[]; xSession?:{done:boolean;note:string}; metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string; dailyTargets?:Record<string,number[]>; executionVersion?:number; weeklyPending?:boolean; visitRecords?:Visit[]; meetings?:Meeting[]; commitmentsMet?:boolean; commitmentsAssessed?:boolean; p4Total?:number; p4Completed?:number; commercialDays?:{online:number[];presential:number[]}};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
-export type Period = {commercialData?:CommercialData;strategyVersion?:number; studyStages?:Record<number,StudyStage>; studyMaterials?:StudyMaterial[]; bodyRecords?:BodyRecord[]; nutritionPlan?:{calories:string;protein:string;fat:string;meals:string[]}; id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; calendarVersion?:number; commitmentPrinciple?:string; commitments?:string[]; perspective?:string; horizons?:Horizon[]};
+export type Period = {finance?:FinanceState;commercialScheduleVersion?:number;confirmedWeightsVersion?:number;commercialData?:CommercialData;strategyVersion?:number; studyStages?:Record<number,StudyStage>; studyMaterials?:StudyMaterial[]; bodyRecords?:BodyRecord[]; nutritionPlan?:{calories:string;protein:string;fat:string;meals:string[]}; id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; calendarVersion?:number; commitmentPrinciple?:string; commitments?:string[]; perspective?:string; horizons?:Horizon[]};
 export type State = {periods:Period[]; selected:string; defaults:Metric[]; weights:Record<string,number>; green:number; yellow:number; areaWeightsVersion?:number; executionVersion?:number};
 export const defaults:Metric[] = [
  ['leads','Leads prospectados online','Comercial','leads',60,3],['visits','Prospecções presenciais','Comercial','empresas',8,2],['scheduled','Calls agendadas','Comercial','calls',5,2],['calls','Calls realizadas','Comercial','calls',4,2],['reviews','Revisões de call','Comercial','revisões',0,1],
@@ -51,9 +52,24 @@ export function scoreWeek(week:Week) {
  return {metrics,scores,overall:week.commercialVersion===1&&!week.commercialConfirmed?null:overall,total};
 }
 export function projection(goal:Goal,progress:number){if(progress<=0||goal.unit==='kg'||goal.confirmed===false||(goal.stock&&goal.initialConfirmed===false))return null;return goal.stock?goal.initial+(goal.value-goal.initial)/progress:goal.value/progress;}
+export function applyConfirmedWeights(period:Period,now=Date.now()):void {
+ if((period.confirmedWeightsVersion??0)>=2||period.closed)return;
+ period.weeks.forEach((w,i)=>{if(i<2||Date.parse(weekBounds(period,i).end)<=now)return;w.weights.Comercial=45;w.weights.Disciplina=10;});
+ period.confirmedWeightsVersion=2;
+}
+export function applyConfirmedSchedule(period:Period,now=Date.now()):void {
+ if(period.commercialScheduleVersion===1||period.closed)return;
+ period.weeks.forEach((w,i)=>{
+  if(i<2||w.strategyVersion!==1||Date.parse(weekBounds(period,i).end)<=now)return;
+  w.commercialDays={online:[1,5],presential:[2,3,4]};
+  // Replace only the superseded automatic allocation; other daily plans stay intact.
+  if(w.dailyTargets){delete w.dailyTargets.leads;delete w.dailyTargets.visits;}
+ });
+ period.commercialScheduleVersion=1;
+}
 export function initialState():State {
- const p=makePeriod(initialPeriod.name,initialPeriod.start);applyCommercialPlan(p);correctWeekOneTargets(p);
- return {periods:[p],selected:p.id,defaults:structuredClone(defaults),weights:{...weights},green:85,yellow:70,areaWeightsVersion:2};
+ const p=makePeriod(initialPeriod.name,initialPeriod.start);applyCommercialPlan(p);correctWeekOneTargets(p);applyConfirmedWeights(p);applyConfirmedSchedule(p);
+ return {periods:[p],selected:p.id,defaults:structuredClone(defaults),weights:{...weights,Disciplina:10},green:85,yellow:70,areaWeightsVersion:2};
 }
 // Replace only the known demonstration. Preserve existing real periods and user settings.
 export function migrateDemoState(state:State):State {
@@ -61,6 +77,8 @@ export function migrateDemoState(state:State):State {
  for(const p of state.periods){if(!p.calendarVersion)migrateSundayCalendar(p);applyStrategy(p);p.weeks.forEach((w,i)=>{if(w.commercialVersion===1)w.commercialDates=weekDates(p,i);});}
  if(state.executionVersion!==1){state.weights={...state.weights,Comercial:45,Disciplina:10};for(const m of state.defaults)updateExecutionMetric(m);for(const m of addedMetrics)if(!state.defaults.some(x=>x.id===m.id))state.defaults.push({...m});state.executionVersion=1;}
  for(const p of state.periods)if(Date.parse(p.start)===Date.parse(initialPeriod.start))correctWeekOneTargets(p);
+ for(const p of state.periods){applyConfirmedWeights(p);applyConfirmedSchedule(p);}
+ state.weights.Comercial=45;state.weights.Disciplina=10;
  for(const saved of preserved){const p=state.periods.find(p=>p.id===saved.id);if(p){p.weeks[0]=saved.weeks[0];p.weeks[1]=saved.weeks[1];}}
  const real=state.periods.filter(p=>p.name!=='Período demonstrativo');
  if(real.length===state.periods.length){for(const p of real){if(Date.parse(p.start)===Date.parse(initialPeriod.start)&&!p.commercialPlanVersion)applyCommercialPlan(p,true);}return state;}
@@ -124,7 +142,7 @@ export function scorePeriod(period:Period,now=Date.now()) {
  }
  const today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
  for(const m of result.metrics){let past=0;let dueToday=0;period.weeks.slice(0,last+1).forEach((w,i)=>{const plan=dailyTargets(period,i),dates=weekDates(period,i);dates.forEach((d,j)=>{if(d<today)past+=plan[m.id]?.[j]||0;if(d===today)dueToday+=plan[m.id]?.[j]||0;});});if(m.id==='reviews'){past=scoreWeek({...combined,entries:combined.entries.filter(e=>e.date<today)}).total.calls||0;dueToday=(result.total.calls||0)-past;}m.overdue=Math.max(0,past-m.value);m.dueToday=dueToday;}
- return {...result,weights:combined.weights,entries:combined.entries};
+ return {...result,weights:{...period.weeks[last].weights},entries:combined.entries};
 }
 
 export function weekBounds(period:Pick<Period,'start'>,index:number):{start:string;end:string}{
