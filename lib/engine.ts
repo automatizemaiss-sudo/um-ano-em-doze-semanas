@@ -49,7 +49,8 @@ export function scoreWeek(week:Week) {
  const scores:Record<string,number|null>={};for(const area of areas){const applicable=metrics.filter(m=>isLeadMetric(m)&&m.area===area&&m.ratio!==null&&m.weight>0);scores[area]=applicable.length?applicable.reduce((s,m)=>s+Math.min(1,m.ratio!)*m.weight,0)/applicable.reduce((s,m)=>s+m.weight,0):null;}
  if(week.commercialVersion===1&&!week.commercialConfirmed)scores.Comercial=null;
  const applicable=areas.filter(a=>scores[a]!==null&&week.weights[a]>0);const overall=applicable.length?applicable.reduce((s,a)=>s+scores[a]!*week.weights[a],0)/applicable.reduce((s,a)=>s+week.weights[a],0):null;
- return {metrics,scores,overall:week.commercialVersion===1&&!week.commercialConfirmed?null:overall,total};
+ const totalWeight=areas.reduce((s,a)=>s+(week.weights[a]||0),0),knownWeight=applicable.reduce((s,a)=>s+week.weights[a],0);
+ return {metrics,scores,overall:week.commercialVersion===1&&!week.commercialConfirmed?null:overall,partialOverall:totalWeight>0?applicable.reduce((s,a)=>s+scores[a]!*week.weights[a],0)/totalWeight:null,coverage:totalWeight>0?knownWeight/totalWeight:0,total};
 }
 export function projection(goal:Goal,progress:number){if(progress<=0||goal.unit==='kg'||goal.confirmed===false||(goal.stock&&goal.initialConfirmed===false))return null;return goal.stock?goal.initial+(goal.value-goal.initial)/progress:goal.value/progress;}
 export function applyConfirmedWeights(period:Period,now=Date.now()):void {
@@ -135,6 +136,8 @@ export function scorePeriod(period:Period,now=Date.now()) {
  result.overall=eligible.length?eligible.reduce((s,a)=>s+result.scores[a]!*combined.weights[a],0)/eligible.reduce((s,a)=>s+combined.weights[a],0):null;
  if(included.some(w=>w.strategyVersion===1)){
   const snapshots=included.map(w=>scoreWeek(w));
+  result.partialOverall=snapshots.reduce((s,v)=>s+(v.overall??v.partialOverall??0),0)/snapshots.length;
+  result.coverage=snapshots.reduce((s,v)=>s+v.coverage,0)/snapshots.length;
   for(const a of ['Comercial','Saúde','Estudo']){const valid=snapshots.map(s=>s.scores[a]).filter((v):v is number=>v!==null);result.scores[a]=valid.length?valid.reduce((s,v)=>s+v,0)/valid.length:null;}
   const eligible=areas.filter(a=>result.scores[a]!==null&&combined.weights[a]>0);
   result.overall=snapshots.some(s=>s.scores.Comercial===null)?null:eligible.reduce((s,a)=>s+result.scores[a]!*combined.weights[a],0)/eligible.reduce((s,a)=>s+combined.weights[a],0);
