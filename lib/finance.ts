@@ -77,3 +77,16 @@ export function addFinancePayment(p:Period,index:number,payment:FinancePayment,n
  m.payments.push(payment);setFinanceMonth(p,index,m,now);
 }
 export function financeClients(finance:FinanceState,asOf:string){return {historical:finance.legacyClients,newCount:finance.contracts.filter(c=>c.date<=asOf).length,total:finance.legacyClients===null?null:finance.legacyClients+finance.contracts.filter(c=>c.date<=asOf).length};}
+
+// Zero is the display/input default. Keep persisted nulls and historical values intact.
+export function financeDisplayMonth(source:FinanceMonth):FinanceMonth{
+ const month=structuredClone(source);
+ for(const key of ['revenue','received','operatingCosts','operatingPaid','ownerCharges','ownerChargesPaid','cashAvailable','ownerDebt','obligations'] as const)month[key]??=0;
+ return month;
+}
+export function financeDisplayTotals(source:FinanceState,index:number){
+ const finance=structuredClone(source);
+ for(const key of ['revenue','received','costs','paid'] as const)finance.opening[key]??=0;
+ for(let i=2;i<=index;i++)finance.months[i]=financeDisplayMonth(finance.months[i]??emptyFinanceMonth());
+ return financeTotals(finance,index);
+}

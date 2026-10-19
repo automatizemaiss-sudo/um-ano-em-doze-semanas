@@ -36,8 +36,8 @@ O capital de giro mínimo e o alcance das obrigações não foram definidos no b
 - A meta pessoal de investimentos e as projeções financeiras saíram da interface ativa.
 - Nenhuma receita, despesa, contrato ou pagamento foi inventado a partir das metas antigas.
 - Clientes antigos confirmados continuam no saldo histórico; os novos contratos registrados são adicionais.
-- Os totais anteriores à semana 3 exigem confirmação única. Valores antigos com classificação diferente ficam visíveis como referência, sem conversão automática.
-- Campos vazios representam ausência de dados. O acumulado do ciclo permanece incompleto até confirmar os saldos anteriores e os meses alcançados.
+- Os totais anteriores à semana 3 podem ser editados nos saldos iniciais. Valores antigos com classificação diferente ficam visíveis como referência, sem conversão automática.
+- Por solicitação do usuário, campos vazios são exibidos como zero e podem ser editados. O acumulado exibido soma os valores preenchidos, usando zero para os restantes, sem sobrescrever registros persistidos. Os avisos de ausência de registro foram removidos. A liberação gerencial continua dependendo da configuração da política.
 - Os meses financeiros encerrados são somente de consulta. A política utilizada é salva no mês, evitando que configurações futuras alterem a autorização histórica.
 - As semanas de execução, suas métricas, pesos e scores não são modificados por registros financeiros.
 
