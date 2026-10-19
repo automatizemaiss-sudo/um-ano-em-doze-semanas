@@ -1,5 +1,5 @@
 import type {Entry,Week} from './engine';
-export type Training={type:string;quality:number;duration:number;note:string;scale?:5|10};
+export type Training={type:string;abdomen?:boolean;quality:number;duration:number;note:string;scale?:5|10};
 export type Visit={id:string;date:string;company:string;outcome:'owner'|'manager'|'time'|'nothing';contact:string;nextStep:string;note:string;reviewed:boolean;reviewNote?:string};
 export type Meeting={id:string;visitId?:string;date:string;company:string;outcome:'scheduled'|'won'|'followup'|'lost'|'cancelled';note:string;reviewed:boolean;reviewNote?:string};
 export type Horizon={years:3|5|10|20;description:string;photos:{id:string;src:string;caption:string;createdAt:string}[]};
