@@ -60,5 +60,5 @@ export function commercialStats(w:Week){
 export function installCommercial(p:Period,next:CommercialData,now=Date.now()){
  p.commercialData=mergeCommercial(p.commercialData,next);
  // The caller supplies the shared calendar. Closed weekly snapshots are immutable.
- for(const w of p.weeks){if(w.commercialVersion!==1||!w.commercialDates?.length||Date.parse(w.commercialDates.at(-1)!+'T23:59:59.999-03:00')<now)continue;w.commercialRows=structuredClone(p.commercialData.rows);w.commercialConfirmed=!next.warnings.some(s=>/duplicado|sem número estável|evento sem data/.test(s));}
+ for(const w of p.weeks){if(w.manualCommercialVersion===1||w.commercialVersion!==1||!w.commercialDates?.length||Date.parse(w.commercialDates.at(-1)!+'T23:59:59.999-03:00')<now)continue;w.commercialRows=structuredClone(p.commercialData.rows);w.commercialConfirmed=!next.warnings.some(s=>/duplicado|sem número estável|evento sem data/.test(s));}
 }

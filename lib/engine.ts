@@ -11,8 +11,8 @@ export function isLeadMetric(metric:{id:string}):boolean{return metricRoles[metr
 export const commercialHorizon={from:'2026-10-26',through:'2026-12-17',companies:160,clients:8,deadline:'2026-12-28'};
 export const areas = ['Comercial','Saúde','Estudo','Disciplina'];
 export type Metric = {id:string; name:string; area:string; unit:string; target:number; weight:number; active:boolean};
-export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; responses?:number; sales?:number; channels?:Partial<Record<'online'|'presential',Record<string,number>>>; followupsReviewed?:boolean; followupsDone?:boolean; sleepTime?:string; p4Planned?:number; p4Done?:number; visitReviews?:number; onlineReviews?:number; nutrition?:boolean; caloriesMet?:boolean; proteinMet?:boolean; abdomenSessions?:number; newsUpdates?:Partial<Record<'news'|'superhuman'|'instagram','Concluído'|'Não realizado'|'Sem edição'>>; trainings:Training[]};
-export type Week = {simplificationVersion?:number;previousDashboardRules?:{metrics:Metric[];dailyTargets?:Record<string,number[]>;commercialDays?:{online:number[];presential:number[]}};commercialRows?:CommercialRow[];commercialDates?:string[];commercialReviews?:Record<string,{done:boolean;note:string}>;commercialHours?:CommercialHours[];strategyVersion?:number; commercialVersion?:number; commercialConfirmed?:boolean; studyDates?:string[]; studySessions?:StudySession[]; xSession?:{done:boolean;note:string}; metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string; dailyTargets?:Record<string,number[]>; executionVersion?:number; weeklyPending?:boolean; visitRecords?:Visit[]; meetings?:Meeting[]; commitmentsMet?:boolean; commitmentsAssessed?:boolean; p4Total?:number; p4Completed?:number; commercialDays?:{online:number[];presential:number[]}};
+export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; responses?:number; sales?:number; channels?:Partial<Record<'online'|'presential',Record<string,number>>>; followupsRequired?:number; followupsCompleted?:number; followupsReviewed?:boolean; followupsDone?:boolean; sleepTime?:string; p4Planned?:number; p4Done?:number; visitReviews?:number; onlineReviews?:number; nutrition?:boolean; caloriesMet?:boolean; proteinMet?:boolean; abdomenSessions?:number; newsUpdates?:Partial<Record<'news'|'superhuman'|'instagram','Concluído'|'Não realizado'|'Sem edição'>>; trainings:Training[]};
+export type Week = {manualCommercialVersion?:1; previousCommercialEntries?:Entry[];simplificationVersion?:number;previousDashboardRules?:{metrics:Metric[];dailyTargets?:Record<string,number[]>;commercialDays?:{online:number[];presential:number[]}};commercialRows?:CommercialRow[];commercialDates?:string[];commercialReviews?:Record<string,{done:boolean;note:string}>;commercialHours?:CommercialHours[];strategyVersion?:number; commercialVersion?:number; commercialConfirmed?:boolean; studyDates?:string[]; studySessions?:StudySession[]; xSession?:{done:boolean;note:string}; metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string; dailyTargets?:Record<string,number[]>; executionVersion?:number; weeklyPending?:boolean; visitRecords?:Visit[]; meetings?:Meeting[]; commitmentsMet?:boolean; commitmentsAssessed?:boolean; p4Total?:number; p4Completed?:number; commercialDays?:{online:number[];presential:number[]}};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
 export type Period = {finance?:FinanceState;commercialScheduleVersion?:number;confirmedWeightsVersion?:number;commercialData?:CommercialData;strategyVersion?:number; studyStages?:Record<number,StudyStage>; studyMaterials?:StudyMaterial[]; bodyRecords?:BodyRecord[]; nutritionPlan?:{calories:string;protein:string;fat:string;meals:string[]}; id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; calendarVersion?:number; commitmentPrinciple?:string; commitments?:string[]; perspective?:string; horizons?:Horizon[]};
@@ -43,15 +43,16 @@ export function scoreWeek(week:Week) {
  for(const e of operationalEntries(week)){for(const source of ['online','presential'] as const){for(const [field,value] of Object.entries(e.channels?.[source]||{})){if(value!==undefined)total[source+'_'+field]=(total[source+'_'+field]||0)+value;}}for(const k of ['leads','visits','scheduled','calls','reviews','minutes','updates','makers','daily','responses','sales']){if((k==='sales'||k==='responses')&&e[k]===undefined&&!Object.values(e.channels||{}).some(c=>c[k]!==undefined))continue;total[k]=(total[k]||0)+Math.max(Number(e[k as keyof Entry]||0),['scheduled','calls','sales','responses'].includes(k)?Object.values(e.channels||{}).reduce((s,c)=>s+(c[k]||0),0):0);}total.followups=(total.followups||0)+Number(!!e.followupsReviewed&&!!e.followupsDone);total.sleep=(total.sleep||0)+Number(before2330(e.sleepTime));total.p4=(total.p4||0)+(e.p4Done||0);total.visitReviews=(total.visitReviews||0)+(e.visitReviews||0);for(const t of e.trainings){total.trainings=(total.trainings||0)+1;total.strength=(total.strength||0)+(t.type==='Musculação'?1:0);total.quality=(total.quality||0)+(week.executionVersion===1?Number(trainingGrade(t)>=7):Number(t.quality>=4));total.perfect=(total.perfect||0)+(week.executionVersion===1?Number(trainingGrade(t)>=9):Number(t.quality===5));}}
  if(week.executionVersion===1){total.reviews=(total.reviews||0)+(total.visitReviews||0);total.p4=week.p4Completed??total.p4;total.commitments=week.commitmentsAssessed&&week.commitmentsMet?1:0;}
  revisedTotals(week,total);
- const commercial=week.commercialVersion===1?commercialStats(week):null;
+ const commercial=week.commercialVersion===1&&week.manualCommercialVersion!==1?commercialStats(week):null;
  if(commercial){total.leads=commercial.online;total.visits=commercial.presential;total.followups=commercial.completed.length;total.visitReviews=commercial.visitReviewed;total.meetingReviews=commercial.meetingReviewed;}
 
- const metrics=week.metrics.filter(m=>m.active).map(m=>{const target=commercial&&m.id==='followups'?commercial.planned.length:commercial&&m.id==='visitReviews'?commercial.visits.length:commercial&&m.id==='meetingReviews'?commercial.meetings.length:week.strategyVersion===1&&['studyUpdates','trainingCombined'].includes(m.id)?m.id==='studyUpdates'?100:50:m.id==='reviews'?(total.calls||0)+(week.executionVersion===1?(total.visits||0):0):m.id==='quality'&&week.executionVersion===1?Math.max(total.trainings||0,m.target):m.id==='p4'?(week.weeklyPending?0:(week.p4Total??(week.entries.reduce((s,e)=>s+(e.p4Planned||0),0)||m.target))):m.target;const value=total[m.id]||0;return {...m,target,value,ratio:target>0?value/target:null,overdue:0,dueToday:0};});
+ if(week.manualCommercialVersion===1)Object.assign(total,manualCommercialTotals(week));
+ const metrics=week.metrics.filter(m=>m.active).map(m=>{const target=week.manualCommercialVersion===1&&m.id==='followups'?total.followupsRequired:commercial&&m.id==='followups'?commercial.planned.length:commercial&&m.id==='visitReviews'?commercial.visits.length:commercial&&m.id==='meetingReviews'?commercial.meetings.length:week.strategyVersion===1&&['studyUpdates','trainingCombined'].includes(m.id)?m.id==='studyUpdates'?100:50:m.id==='reviews'?(total.calls||0)+(week.executionVersion===1?(total.visits||0):0):m.id==='quality'&&week.executionVersion===1?Math.max(total.trainings||0,m.target):m.id==='p4'?(week.weeklyPending?0:(week.p4Total??(week.entries.reduce((s,e)=>s+(e.p4Planned||0),0)||m.target))):m.target;const value=total[m.id]||0;return {...m,target,value,ratio:target>0?value/target:null,overdue:0,dueToday:0};});
  const scores:Record<string,number|null>={};for(const area of areas){const applicable=metrics.filter(m=>isLeadMetric(m)&&m.area===area&&m.ratio!==null&&m.weight>0);scores[area]=applicable.length?applicable.reduce((s,m)=>s+Math.min(1,m.ratio!)*m.weight,0)/applicable.reduce((s,m)=>s+m.weight,0):null;}
- if(week.commercialVersion===1&&!week.commercialConfirmed)scores.Comercial=null;
+ if(week.commercialVersion===1&&week.manualCommercialVersion!==1&&!week.commercialConfirmed)scores.Comercial=null;
  const applicable=areas.filter(a=>scores[a]!==null&&week.weights[a]>0);const overall=applicable.length?applicable.reduce((s,a)=>s+scores[a]!*week.weights[a],0)/applicable.reduce((s,a)=>s+week.weights[a],0):null;
  const totalWeight=areas.reduce((s,a)=>s+(week.weights[a]||0),0),knownWeight=applicable.reduce((s,a)=>s+week.weights[a],0);
- return {metrics,scores,overall:week.commercialVersion===1&&!week.commercialConfirmed?null:overall,partialOverall:totalWeight>0?applicable.reduce((s,a)=>s+scores[a]!*week.weights[a],0)/totalWeight:null,coverage:totalWeight>0?knownWeight/totalWeight:0,total};
+ return {metrics,scores,overall:week.commercialVersion===1&&week.manualCommercialVersion!==1&&!week.commercialConfirmed?null:overall,partialOverall:totalWeight>0?applicable.reduce((s,a)=>s+scores[a]!*week.weights[a],0)/totalWeight:null,coverage:totalWeight>0?knownWeight/totalWeight:0,total};
 }
 export function projection(goal:Goal,progress:number){if(progress<=0||goal.unit==='kg'||goal.confirmed===false||(goal.stock&&goal.initialConfirmed===false))return null;return goal.stock?goal.initial+(goal.value-goal.initial)/progress:goal.value/progress;}
 export function applyConfirmedWeights(period:Period,now=Date.now()):void {
@@ -92,22 +93,54 @@ export function applySimplifiedDashboard(period:Period):void {
  });
  const clients=period.goals.find(g=>g.name==='Clientes fechados');if(clients)clients.target=commercialHorizon.clients;
 }
-export function initialState():State {
- const p=makePeriod(initialPeriod.name,initialPeriod.start);applyCommercialPlan(p);correctWeekOneTargets(p);applyConfirmedWeights(p);applyConfirmedSchedule(p);applySimplifiedDashboard(p);
+// Counts are entered once per day. Legacy checkboxes and channel totals are not counts.
+export function manualCommercialTotals(week:Pick<Week,'entries'>){
+ const sum=(key:'visits'|'calls'|'followupsRequired'|'followupsCompleted')=>week.entries.reduce((total,e)=>total+(Number.isFinite(e[key])?Math.max(0,Math.trunc(e[key]!)):0),0);
+ return {visits:sum('visits'),calls:sum('calls'),followupsRequired:sum('followupsRequired'),followups:sum('followupsCompleted')};
+}
+export function applyManualCommercial(period:Period,now=Date.now()):void {
+ if(period.closed)return;
+ period.weeks.forEach((w,i)=>{
+  if(i<2||w.simplificationVersion!==1||w.manualCommercialVersion===1||Date.parse(weekBounds(period,i).end)<=now)return;
+  w.previousCommercialEntries=structuredClone(w.entries);
+  // Preserve confirmed imports as editable daily starting values, without double counting.
+  if(w.commercialConfirmed&&w.commercialRows?.length){
+   const dates=weekDates(period,i),stats=commercialStats({...w,commercialDates:dates});
+   for(const date of dates){
+    const daily=commercialStats({...w,commercialDates:[date]});
+    const required=stats.planned.filter(r=>(r.original||r.due)===date).length;
+    const completed=stats.completed.filter(r=>r.done===date).length;
+    let e=w.entries.find(e=>e.date===date);
+    if(!e&&!daily.presential&&!daily.meetings.length&&!required&&!completed)continue;
+    if(!e){e=emptyEntry(date);w.entries.push(e);}
+    e.visits=daily.presential;e.calls=Math.max(e.calls,daily.meetings.length);
+    e.followupsRequired??=required;e.followupsCompleted??=completed;
+   }
+  }
+  const followups=w.metrics.find(m=>m.id==='followups');
+  if(followups){followups.name='Follow-ups feitos / necessários';followups.unit='follow-ups';followups.target=0;}
+  const calls=w.metrics.find(m=>m.id==='calls');if(calls){calls.name='Reuniões realizadas';calls.unit='reuniões';}
+  if(w.dailyTargets)delete w.dailyTargets.followups;
+  w.manualCommercialVersion=1;
+ });
+}
+
+export function initialState(now=Date.now()):State {
+ const p=makePeriod(initialPeriod.name,initialPeriod.start);applyCommercialPlan(p);correctWeekOneTargets(p);applyConfirmedWeights(p);applyConfirmedSchedule(p);applySimplifiedDashboard(p);applyManualCommercial(p,now);
  return {periods:[p],selected:p.id,defaults:structuredClone(defaults),weights:{...weights,Disciplina:10},green:85,yellow:70,areaWeightsVersion:2};
 }
 // Replace only the known demonstration. Preserve existing real periods and user settings.
-export function migrateDemoState(state:State):State {
+export function migrateDemoState(state:State,now=Date.now()):State {
  const preserved=state.periods.map(p=>({id:p.id,weeks:structuredClone(p.weeks.slice(0,2))}));
  for(const p of state.periods){if(!p.calendarVersion)migrateSundayCalendar(p);applyStrategy(p);p.weeks.forEach((w,i)=>{if(w.commercialVersion===1)w.commercialDates=weekDates(p,i);});}
  if(state.executionVersion!==1){state.weights={...state.weights,Comercial:45,Disciplina:10};for(const m of state.defaults)updateExecutionMetric(m);for(const m of addedMetrics)if(!state.defaults.some(x=>x.id===m.id))state.defaults.push({...m});state.executionVersion=1;}
  for(const p of state.periods)if(Date.parse(p.start)===Date.parse(initialPeriod.start))correctWeekOneTargets(p);
- for(const p of state.periods){applyConfirmedWeights(p);applyConfirmedSchedule(p);applySimplifiedDashboard(p);}
+ for(const p of state.periods){applyConfirmedWeights(p);applyConfirmedSchedule(p);applySimplifiedDashboard(p);applyManualCommercial(p,now);}
  state.weights.Comercial=45;state.weights.Disciplina=10;
  for(const saved of preserved){const p=state.periods.find(p=>p.id===saved.id);if(p){p.weeks[0]=saved.weeks[0];p.weeks[1]=saved.weeks[1];}}
  const real=state.periods.filter(p=>p.name!=='Período demonstrativo');
  if(real.length===state.periods.length){for(const p of real){if(Date.parse(p.start)===Date.parse(initialPeriod.start)&&!p.commercialPlanVersion)applyCommercialPlan(p,true);}return state;}
- if(!real.length){const p=makePeriod(initialPeriod.name,initialPeriod.start,state.defaults,state.weights);applyCommercialPlan(p,true);correctWeekOneTargets(p);applySimplifiedDashboard(p);return {...state,periods:[p],selected:p.id};}
+ if(!real.length){const p=makePeriod(initialPeriod.name,initialPeriod.start,state.defaults,state.weights);applyCommercialPlan(p,true);correctWeekOneTargets(p);applySimplifiedDashboard(p);applyManualCommercial(p,now);return {...state,periods:[p],selected:p.id};}
  return {...state,periods:real,selected:real.some(p=>p.id===state.selected)?state.selected:real[0].id};
 }
 
@@ -213,6 +246,7 @@ export function migrateSundayCalendar(period:Period):void {
 export function dailyTargets(period:Period,index:number):Record<string,number[]>{
  const week=period.weeks[index],dates=weekDates(period,index),result:Record<string,number[]>={};
  for(const m of week.metrics){
+  if(week.manualCommercialVersion===1&&m.id==='followups'){result[m.id]=dates.map(date=>manualCommercialTotals({entries:week.entries.filter(e=>e.date===date)}).followupsRequired);continue;}
   const stored=week.dailyTargets?.[m.id];
   const sum=stored?.reduce((s,v)=>s+v,0)||0;
   if(stored&&stored.length===dates.length&&Math.abs(sum-m.target)<.00001){result[m.id]=[...stored];continue;}
