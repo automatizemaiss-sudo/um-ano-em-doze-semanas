@@ -45,10 +45,17 @@ export function commercialStats(w:Week){
  const planned=rows.filter(r=>r.kind==='Follow-up'&&inPeriod(r.original||r.due));
  const completed=planned.filter(r=>inPeriod(r.done));
  const approaches=rows.filter(r=>r.kind==='Evento'&&r.activity==='Primeira abordagem'&&inPeriod(r.done));
- const visits=approaches.filter(r=>r.origin==='Presencial'),meetings=rows.filter(r=>r.kind==='Reunião'&&inPeriod(r.done));
+ const company=(name:string)=>name.trim().replace(/\s+/g,' ').toLocaleLowerCase('pt-BR');
+ const firstByCompany=new Map<string,string>();
+ if(w.simplificationVersion===1)for(const r of rows){
+  if(r.origin!=='Presencial')continue;
+  const date=r.kind==='Cadastro'?r.first:r.kind==='Evento'&&r.activity==='Primeira abordagem'&&r.note.trim()?r.done:'';
+  if(date&&(!firstByCompany.has(company(r.name))||date<firstByCompany.get(company(r.name))!))firstByCompany.set(company(r.name),date);
+ }
+ const visits=approaches.filter(r=>r.origin==='Presencial'&&(w.simplificationVersion!==1||!!r.note.trim()&&r.done===firstByCompany.get(company(r.name)))),meetings=rows.filter(r=>r.kind==='Reunião'&&inPeriod(r.done));
  const agenda=rows.filter(r=>r.kind==='Reunião'&&inPeriod(r.original||r.due));
  const reviewed=w.commercialReviews||{};
- return {planned,completed,approaches,visits,meetings,agenda,online:new Set(approaches.filter(r=>r.origin==='Leads').map(r=>r.name)).size,presential:new Set(visits.map(r=>r.name)).size,visitReviewed:visits.filter(r=>reviewed[r.id]?.done).length,meetingReviewed:meetings.filter(r=>reviewed[r.id]?.done).length,onTime:completed.filter(r=>r.done<=(r.original||r.due)).length,late:completed.filter(r=>r.done>(r.original||r.due)).length,previous:rows.filter(r=>r.kind==='Follow-up'&&inPeriod(r.done)&&!inPeriod(r.original||r.due)),cancelled:planned.filter(r=>/cancelad/i.test(r.status)),rescheduled:planned.filter(r=>r.original&&r.due!==r.original)};
+ return {planned,completed,approaches,visits,meetings,agenda,online:new Set(approaches.filter(r=>r.origin==='Leads').map(r=>r.name)).size,presential:new Set(visits.map(r=>w.simplificationVersion===1?company(r.name):r.name)).size,visitReviewed:visits.filter(r=>reviewed[r.id]?.done).length,meetingReviewed:meetings.filter(r=>reviewed[r.id]?.done).length,onTime:completed.filter(r=>r.done<=(r.original||r.due)).length,late:completed.filter(r=>r.done>(r.original||r.due)).length,previous:rows.filter(r=>r.kind==='Follow-up'&&inPeriod(r.done)&&!inPeriod(r.original||r.due)),cancelled:planned.filter(r=>/cancelad/i.test(r.status)),rescheduled:planned.filter(r=>r.original&&r.due!==r.original)};
 }
 export function installCommercial(p:Period,next:CommercialData,now=Date.now()){
  p.commercialData=mergeCommercial(p.commercialData,next);

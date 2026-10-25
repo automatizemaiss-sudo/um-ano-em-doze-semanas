@@ -34,6 +34,7 @@ export function applyStrategy(period:Period){
  if(period.strategyVersion===1)return;
  for(let i=2;i<period.weeks.length;i++){
   const w=period.weeks[i];
+  if(w.strategyVersion===1)continue;
   const first=new Date(period.start).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
   if(first!=='2026-10-06')continue;
   w.strategyVersion=1;
@@ -59,6 +60,8 @@ export function revisedTotals(week:Week,total:Record<string,number>){
  total.minutes=(total.minutes||0)+sessions.reduce((s,e)=>s+e.minutes,0);
  total.studyUpdates=studyUpdates(week).score*100;
  total.nutrition=week.entries.filter(e=>e.nutrition===true).length;
+ total.caloriesMet=week.entries.filter(e=>e.caloriesMet??(e.nutrition===true)).length;
+ total.proteinMet=week.entries.filter(e=>e.proteinMet??(e.nutrition===true)).length;
  const ts=week.entries.flatMap(e=>e.trainings);
  total.strength=ts.filter(t=>t.type==='Musculação').length;
  total.cardio=ts.filter(t=>isCardio(t.type)).length;
