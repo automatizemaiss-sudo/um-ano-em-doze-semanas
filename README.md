@@ -1,7 +1,7 @@
 # 12 semanas
 Dashboard pessoal em Next.js, React e Supabase. Interface em português, timezone America/Sao_Paulo.
 
-As regras vigentes do ciclo estão em [Dashboard simplificado](docs/dashboard-simplificado.md): online encerrado em 19/10, presencial 20/semana a partir de 26/10, pesos comerciais 60/40, alimentação separada e registro diário sem P4. Prospecções, follow-ups necessários e feitos e reuniões realizadas agora são preenchidos manualmente nas semanas abertas. As seções históricas abaixo descrevem também versões anteriores.
+As regras vigentes do ciclo estão em [Dashboard simplificado](docs/dashboard-simplificado.md): online encerrado em 19/10, presencial 20/semana a partir de 26/10, pesos comerciais 60/40, alimentação separada e registro diário sem P4. Prospecções, follow-ups necessários e feitos e reuniões agendadas e realizadas agora são preenchidos manualmente nas semanas abertas. As seções históricas abaixo descrevem também versões anteriores.
 
 ## Executar
 ```sh

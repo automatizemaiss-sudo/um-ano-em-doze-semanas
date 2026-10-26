@@ -95,8 +95,8 @@ export function applySimplifiedDashboard(period:Period):void {
 }
 // Counts are entered once per day. Legacy checkboxes and channel totals are not counts.
 export function manualCommercialTotals(week:Pick<Week,'entries'>){
- const sum=(key:'visits'|'calls'|'followupsRequired'|'followupsCompleted')=>week.entries.reduce((total,e)=>total+(Number.isFinite(e[key])?Math.max(0,Math.trunc(e[key]!)):0),0);
- return {visits:sum('visits'),calls:sum('calls'),followupsRequired:sum('followupsRequired'),followups:sum('followupsCompleted')};
+ const sum=(key:'visits'|'calls'|'scheduled'|'followupsRequired'|'followupsCompleted')=>week.entries.reduce((total,e)=>total+(Number.isFinite(e[key])?Math.max(0,Math.trunc(e[key]!)):0),0);
+ return {visits:sum('visits'),calls:sum('calls'),scheduled:sum('scheduled'),followupsRequired:sum('followupsRequired'),followups:sum('followupsCompleted')};
 }
 export function applyManualCommercial(period:Period,now=Date.now()):void {
  if(period.closed)return;

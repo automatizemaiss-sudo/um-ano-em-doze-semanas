@@ -12,8 +12,9 @@
 
 ## Registro diário
 
-- Nas semanas abertas, o comercial é preenchido manualmente: novas empresas presenciais, follow-ups necessários, follow-ups feitos e reuniões realizadas. Os campos de qualidade por canal continuam retirados.
+- Nas semanas abertas, o comercial é preenchido manualmente: novas empresas presenciais, follow-ups necessários, follow-ups feitos e reuniões agendadas e realizadas. Os campos de qualidade por canal continuam retirados.
 - A meta de follow-ups é a soma dos necessários informados por dia; o realizado é a soma dos feitos. Zero necessários exclui o indicador do score. Quantidades excedentes continuam visíveis, com contribuição limitada a 100%. Reuniões são apenas acompanhamento.
+- Reuniões agendadas contam no dia em que o agendamento foi feito; realizadas contam no dia em que aconteceram. Ambas são acompanhamento, sem peso no score.
 - Informe necessários incluindo os que já foram feitos. Um follow-up feito em outro dia entra no dia da realização; o necessário permanece no dia em que precisava ser feito. Não transfira nem duplique a necessidade para compensar um atraso.
 - P4, revisões comerciais/semanais e compromissos cumpridos deixaram de gerar cobranças nas semanas com a nova regra. Dados antigos continuam preservados.
 - Calorias e proteínas são dois campos independentes, cada um valendo 20% da Saúde e com meta de seis dias. Treinamento continua com 50% e abdômen com 10%.
@@ -27,7 +28,7 @@ Cada semana mantém sua regra. A migração preserva as semanas 1 e 2, os regist
 
 A migração para preenchimento manual afeta somente semanas abertas a partir da semana 3. Semanas encerradas mantêm suas regras e resultados. As entradas anteriores ficam arquivadas em `previousCommercialEntries`. Importações já confirmadas nas semanas abertas viram valores diários editáveis uma única vez; os dados brutos da fonte são preservados.
 
-O painel comercial mostra os quatro totais dos registros manuais no intervalo escolhido. Semanas históricas continuam com a visualização anterior. A configuração orienta o registro diário e não oferece sincronização comercial com a planilha. A sincronização de backup com Supabase permanece independente. Recarregar, editar e importar backup não soma lançamentos novamente.
+O painel comercial mostra os cinco totais dos registros manuais no intervalo escolhido. Semanas históricas continuam com a visualização anterior. A configuração orienta o registro diário e não oferece sincronização comercial com a planilha. A sincronização de backup com Supabase permanece independente. Recarregar, editar e importar backup não soma lançamentos novamente.
 
 O preenchimento manual dispensa acesso à planilha Google e não modifica seus dados nem seu Apps Script.
 

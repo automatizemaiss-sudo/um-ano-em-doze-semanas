@@ -140,24 +140,24 @@ test('manual: migração preserva semanas encerradas, metas e dados brutos e é 
 
 test('manual: score 60/40 usa quantidades, independe da fonte e reuniões não alteram execução',()=>{
  const p=initialState(Date.parse('2026-10-25T12:00:00-03:00')).periods[0],w=p.weeks[3];
- w.entries=[{...emptyEntry('2026-10-26'),visits:10,followupsRequired:4,followupsCompleted:2,calls:3,channels:{presential:{calls:99}},followupsDone:true,followupsReviewed:true}];
+ w.entries=[{...emptyEntry('2026-10-26'),visits:10,followupsRequired:4,followupsCompleted:2,calls:3,scheduled:5,channels:{presential:{calls:99,scheduled:99}},followupsDone:true,followupsReviewed:true}];
  const score=scoreWeek(w);assert.equal(score.scores.Comercial,.5);assert.notEqual(score.overall,null);
- assert.equal(score.total.visits,10);assert.equal(score.total.calls,3);assert.equal(score.total.followups,2);
+ assert.equal(score.total.visits,10);assert.equal(score.total.calls,3);assert.equal(score.total.scheduled,5);assert.equal(score.total.followups,2);
  assert.equal(score.metrics.find(m=>m.id==='followups')!.target,4);
- w.entries[0].calls=100;assert.equal(scoreWeek(w).scores.Comercial,.5);
+ w.entries[0].calls=100;w.entries[0].scheduled=100;assert.equal(scoreWeek(w).scores.Comercial,.5);assert.equal(scoreWeek(w).overall,score.overall);
  w.entries[0].followupsCompleted=8;assert.equal(scoreWeek(w).total.followups,8);assert.equal(scoreWeek(w).scores.Comercial,.7);
  w.entries[0].followupsRequired=0;assert.equal(scoreWeek(w).metrics.find(m=>m.id==='followups')!.ratio,null);assert.equal(scoreWeek(w).scores.Comercial,.5);
 });
 
 test('manual: filtros diário, semanal e período usam datas e metas necessárias, sem dias futuros',()=>{
  const p=initialState(Date.parse('2026-10-25T12:00:00-03:00')).periods[0],w=p.weeks[3],now=Date.parse('2026-10-27T12:00:00-03:00');
- w.entries=[{...emptyEntry('2026-10-26'),visits:5,followupsRequired:4,followupsCompleted:1,calls:1},{...emptyEntry('2026-10-27'),visits:5,followupsRequired:2,followupsCompleted:3,calls:2},{...emptyEntry('2026-10-28'),visits:5,followupsRequired:100,followupsCompleted:100,calls:100}];
+ w.entries=[{...emptyEntry('2026-10-26'),visits:5,followupsRequired:4,followupsCompleted:1,calls:1,scheduled:2},{...emptyEntry('2026-10-27'),visits:5,followupsRequired:2,followupsCompleted:3,calls:2,scheduled:3},{...emptyEntry('2026-10-28'),visits:5,followupsRequired:100,followupsCompleted:100,calls:100,scheduled:100}];
  assert.deepEqual(dailyTargets(p,3).followups,[4,2,100,0,0,0,0]);
  const day=scoreWeekToDate(p,3,now,'2026-10-27'),week=scoreWeekToDate(p,3,now),period=scorePeriod(p,now);
- assert.equal(day.total.followups,3);assert.equal(day.total.calls,2);assert.equal(day.metrics.find(m=>m.id==='followups')!.target,2);
- assert.equal(week.total.followups,4);assert.equal(week.total.calls,3);assert.equal(week.metrics.find(m=>m.id==='followups')!.target,6);
+ assert.equal(day.total.followups,3);assert.equal(day.total.calls,2);assert.equal(day.total.scheduled,3);assert.equal(day.metrics.find(m=>m.id==='followups')!.target,2);
+ assert.equal(week.total.followups,4);assert.equal(week.total.calls,3);assert.equal(week.total.scheduled,5);assert.equal(week.metrics.find(m=>m.id==='followups')!.target,6);
  assert.equal(week.metrics.find(m=>m.id==='followups')!.dueToday,2);assert.equal(week.metrics.find(m=>m.id==='visits')!.target,10);
- assert.equal(period.total.followups,4);assert.equal(period.total.calls,3);
+ assert.equal(period.total.followups,4);assert.equal(period.total.calls,3);assert.equal(period.total.scheduled,5);
  w.entries[0].visits=0;w.entries[0].followupsRequired=0;w.entries[0].followupsCompleted=0;
  assert.equal(scoreWeekToDate(p,3,now).total.visits,5);assert.equal(scoreWeekToDate(p,3,now).metrics.find(m=>m.id==='followups')!.target,2);
 });
