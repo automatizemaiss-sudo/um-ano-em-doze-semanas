@@ -2,7 +2,7 @@ import type {Entry} from './engine.ts';
 import {trainingGrade,before2330} from './rules.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {makePeriod,scoreWeek,scorePeriod,scoreWeekToDate,dailyTargets,weekDates,weekIndexForDate,migrateSundayCalendar,emptyEntry,virtualTime,projection,initialState,migrateDemoState,applySimplifiedDashboard,applyCommercialPlan,applyRequestedWeights} from './engine.ts';
+import {manualCommercialTotals,makePeriod,scoreWeek,scorePeriod,scoreWeekToDate,dailyTargets,weekDates,weekIndexForDate,migrateSundayCalendar,emptyEntry,virtualTime,projection,initialState,migrateDemoState,applySimplifiedDashboard,applyCommercialPlan,applyRequestedWeights} from './engine.ts';
 test('excesso não mascara métricas ignoradas; revisões são derivadas',()=>{const p=makePeriod('Teste','2026-01-01T00:00:00Z');const e=emptyEntry('2026-01-01');e.leads=600;e.calls=4;e.reviews=3;p.weeks[0].entries=[e];const s=scoreWeek(p.weeks[0]);assert.equal(s.metrics.find(m=>m.id==='reviews')?.ratio,.75);assert.equal(s.scores.Comercial,3.75/10);});
 test('relógio contínuo, limites e projeções de estoque',()=>{const p=makePeriod('Teste','2026-01-01T00:00:00Z');const start=Date.parse(p.start);assert.equal(virtualTime(p,start+(Date.parse(p.end)-start)/2).progress,.5);assert.equal(virtualTime(p,start-1).progress,0);assert.equal(virtualTime(p,Date.parse(p.end)).virtual.getUTCMonth(),11);assert.equal(projection({...p.goals[3],value:24500,initial:24225,confirmed:true,initialConfirmed:true},.5),24775);});
 test('snapshots são independentes',()=>{const p=makePeriod('Teste','2026-01-01T00:00:00Z');p.weeks[1].metrics[0].target=80;assert.equal(p.weeks[0].metrics[0].target,60);});
@@ -173,3 +173,30 @@ test('manual: importação confirmada vira valores editáveis uma vez e nova sin
  w.entries.find(e=>e.date==='2026-10-26')!.visits=0;installCommercial(p,data,now);applyManualCommercial(p,now);
  assert.equal(scoreWeek(w).total.visits,0);assert.deepEqual(w.commercialRows,rows);
 });
+
+test('resumo e indicador de empresas conciliam histórico e controle manual: 7 + 14 = 21',async()=>{
+ const {commercialSummaryTotals}=await import('./engine.ts');
+ const now=Date.parse('2026-10-27T12:00:00-03:00');
+ const p=initialState(Date.parse('2026-10-25T12:00:00-03:00')).periods[0];
+ p.weeks.forEach(w=>{w.entries=[];w.visitRecords=[];w.meetings=[];w.commercialRows=[];});
+ p.weeks[1].entries=[{...emptyEntry('2026-10-13'),visits:7}];
+ p.weeks[3].manualCommercialVersion=1;
+ p.weeks[3].entries=[{...emptyEntry('2026-10-26'),visits:9,followupsRequired:5,followupsCompleted:4},{...emptyEntry('2026-10-27'),visits:5,followupsRequired:4,followupsCompleted:4},{...emptyEntry('2026-10-28'),visits:100}];
+ const before=structuredClone(p);
+ for(const [scope,expected] of [['period',21],['week',14],['day',5]] as const){
+  const summary=commercialSummaryTotals(p,3,scope,now);
+  const score=scope==='period'?scorePeriod(p,now):scoreWeekToDate(p,3,now,scope==='day'?'2026-10-27':undefined);
+  assert.equal(summary.visits,expected);assert.equal(summary.visits,score.metrics.find(m=>m.id==='visits')!.value);
+ }
+ assert.equal(commercialSummaryTotals(p,3,'period',now).followupsRequired,9);
+ assert.deepEqual(p,before);
+});
+
+test('reuniões realizadas separam com e sem agendamento e preservam totais antigos sem classificação',()=>{
+ const e={...emptyEntry('2026-10-27'),calls:0,callsWithAppointment:2,callsWithoutAppointment:3};
+ const total=manualCommercialTotals({entries:[e]});assert.equal(total.calls,5);assert.equal(total.callsWithAppointment,2);assert.equal(total.callsWithoutAppointment,3);assert.equal(total.callsUnclassified,0);
+ const old={...emptyEntry('2026-10-26'),calls:4};const before=structuredClone(old);const mixed=manualCommercialTotals({entries:[old,e]});assert.equal(mixed.calls,9);assert.equal(mixed.callsUnclassified,4);assert.deepEqual(old,before);
+ const p=initialState(Date.parse('2026-10-25T12:00:00-03:00')).periods[0],w=p.weeks[3];w.entries=[e];const score=scoreWeek(w);assert.equal(score.total.calls,5);w.entries[0].callsWithAppointment=0;w.entries[0].callsWithoutAppointment=5;assert.equal(scoreWeek(w).scores.Comercial,score.scores.Comercial);
+});
+
+test('classificação de reuniões passadas preserva total, metas e scores encerrados',async()=>{const {classifyPastMeetings}=await import('./engine.ts');const p=initialState(Date.parse('2026-10-25T12:00:00-03:00')).periods[0],w=p.weeks[2];w.entries=[{...emptyEntry('2026-10-21'),calls:5,minutes:120}];const before=scoreWeek(w),metrics=structuredClone(w.metrics);classifyPastMeetings(p,'2026-10-21',3,2);const after=scoreWeek(w);assert.equal(w.entries[0].calls,5);assert.equal(w.entries[0].callsWithAppointment,3);assert.equal(w.entries[0].callsWithoutAppointment,2);const summary=(await import('./engine.ts')).commercialSummaryTotals(p,2,'week',Date.parse('2026-10-25T12:00:00-03:00'));assert.equal(summary.callsWithAppointment,3);assert.equal(summary.callsWithoutAppointment,2);assert.deepEqual(w.metrics,metrics);assert.deepEqual(after.scores,before.scores);assert.equal(after.overall,before.overall);assert.equal(w.entries[0].minutes,120);const snapshot=structuredClone(w);assert.throws(()=>classifyPastMeetings(p,'2026-10-21',4,2),/ultrapassar/);assert.deepEqual(w,snapshot);assert.throws(()=>classifyPastMeetings(p,'2026-10-22',1,0),/Não há/);});

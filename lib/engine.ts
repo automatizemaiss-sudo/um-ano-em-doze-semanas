@@ -11,7 +11,7 @@ export function isLeadMetric(metric:{id:string}):boolean{return metricRoles[metr
 export const commercialHorizon={from:'2026-10-26',through:'2026-12-17',companies:160,clients:8,deadline:'2026-12-28'};
 export const areas = ['Comercial','Saúde','Estudo','Disciplina'];
 export type Metric = {id:string; name:string; area:string; unit:string; target:number; weight:number; active:boolean};
-export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; responses?:number; sales?:number; channels?:Partial<Record<'online'|'presential',Record<string,number>>>; followupsRequired?:number; followupsCompleted?:number; followupsReviewed?:boolean; followupsDone?:boolean; sleepTime?:string; p4Planned?:number; p4Done?:number; visitReviews?:number; onlineReviews?:number; nutrition?:boolean; caloriesMet?:boolean; proteinMet?:boolean; abdomenSessions?:number; newsUpdates?:Partial<Record<'news'|'superhuman'|'instagram','Concluído'|'Não realizado'|'Sem edição'>>; trainings:Training[]};
+export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; callsWithAppointment?:number; callsWithoutAppointment?:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; responses?:number; sales?:number; channels?:Partial<Record<'online'|'presential',Record<string,number>>>; followupsRequired?:number; followupsCompleted?:number; followupsReviewed?:boolean; followupsDone?:boolean; sleepTime?:string; p4Planned?:number; p4Done?:number; visitReviews?:number; onlineReviews?:number; nutrition?:boolean; caloriesMet?:boolean; proteinMet?:boolean; abdomenSessions?:number; newsUpdates?:Partial<Record<'news'|'superhuman'|'instagram','Concluído'|'Não realizado'|'Sem edição'>>; trainings:Training[]};
 export type Week = {manualCommercialVersion?:1; previousCommercialEntries?:Entry[];simplificationVersion?:number;previousDashboardRules?:{metrics:Metric[];dailyTargets?:Record<string,number[]>;commercialDays?:{online:number[];presential:number[]}};commercialRows?:CommercialRow[];commercialDates?:string[];commercialReviews?:Record<string,{done:boolean;note:string}>;commercialHours?:CommercialHours[];strategyVersion?:number; commercialVersion?:number; commercialConfirmed?:boolean; studyDates?:string[]; studySessions?:StudySession[]; xSession?:{done:boolean;note:string}; metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string; dailyTargets?:Record<string,number[]>; executionVersion?:number; weeklyPending?:boolean; visitRecords?:Visit[]; meetings?:Meeting[]; commitmentsMet?:boolean; commitmentsAssessed?:boolean; p4Total?:number; p4Completed?:number; commercialDays?:{online:number[];presential:number[]}};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
@@ -95,8 +95,11 @@ export function applySimplifiedDashboard(period:Period):void {
 }
 // Counts are entered once per day. Legacy checkboxes and channel totals are not counts.
 export function manualCommercialTotals(week:Pick<Week,'entries'>){
- const sum=(key:'visits'|'calls'|'scheduled'|'followupsRequired'|'followupsCompleted')=>week.entries.reduce((total,e)=>total+(Number.isFinite(e[key])?Math.max(0,Math.trunc(e[key]!)):0),0);
- return {visits:sum('visits'),calls:sum('calls'),scheduled:sum('scheduled'),followupsRequired:sum('followupsRequired'),followups:sum('followupsCompleted')};
+ const sum=(key:'visits'|'calls'|'scheduled'|'followupsRequired'|'followupsCompleted'|'callsWithAppointment'|'callsWithoutAppointment')=>week.entries.reduce((total,e)=>total+(Number.isFinite(e[key])?Math.max(0,Math.trunc(e[key]!)):0),0);
+ const count=(v:number|undefined)=>Number.isFinite(v)?Math.max(0,Math.trunc(v!)):0;
+ const calls=week.entries.reduce((total,e)=>total+Math.max(count(e.calls),count(e.callsWithAppointment)+count(e.callsWithoutAppointment)),0);
+ const callsWithAppointment=sum('callsWithAppointment'),callsWithoutAppointment=sum('callsWithoutAppointment');
+ return {visits:sum('visits'),calls,callsWithAppointment,callsWithoutAppointment,callsUnclassified:Math.max(0,calls-callsWithAppointment-callsWithoutAppointment),scheduled:sum('scheduled'),followupsRequired:sum('followupsRequired'),followups:sum('followupsCompleted')};
 }
 export function applyManualCommercial(period:Period,now=Date.now()):void {
  if(period.closed)return;
@@ -281,4 +284,25 @@ export function updateExecutionMetric(m:Metric):void {
 }
 export function configureExecution(period:Period,from:number):void {
  period.weeks.forEach((w,i)=>{if(i<from||w.executionVersion===1)return;w.weights={...w.weights,Comercial:45,Disciplina:10};w.metrics.forEach(updateExecutionMetric);for(const m of addedMetrics)if(!w.metrics.some(x=>x.id===m.id))w.metrics.push({...m,target:['followups','sleep'].includes(m.id)?weekDates(period,i).length:m.target});w.executionVersion=1;});
+}
+
+
+export function commercialSummaryTotals(period:Period,index:number,scope:string,now=Date.now()){
+ const today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+ const entries=period.weeks.flatMap((w,i)=>w.manualCommercialVersion===1&&(scope==='period'?weekDates(period,i)[0]<=today:i===index)?w.entries.filter(e=>scope==='day'?e.date===today:e.date<=today):[]);
+ const manual=manualCommercialTotals({entries});
+ const execution=scope==='period'?scorePeriod(period,now):scoreWeekToDate(period,index,now,scope==='day'?today:undefined);
+ // Both views must use the same historical + current count of companies.
+ // Legacy follow-up checkboxes are days, so they remain outside the manual task counts.
+ const allEntries=period.weeks.flatMap((w,i)=>(scope==='period'?weekDates(period,i)[0]<=today:i===index)?w.entries.filter(e=>scope==='day'?e.date===today:e.date<=today):[]);
+ const classified=manualCommercialTotals({entries:allEntries}),calls=execution.total.calls||0;
+ return {...manual,visits:execution.total.visits||0,calls,callsWithAppointment:classified.callsWithAppointment,callsWithoutAppointment:classified.callsWithoutAppointment,callsUnclassified:Math.max(0,calls-classified.callsWithAppointment-classified.callsWithoutAppointment)};
+}
+
+export function classifyPastMeetings(period:Period,date:string,withAppointment:number,withoutAppointment:number){
+ const index=weekIndexForDate(period,date),entry=period.weeks[index]?.entries.find(e=>e.date===date);
+ if(!entry)throw new Error('Não há registro diário nesta data.');
+ if([withAppointment,withoutAppointment].some(v=>!Number.isInteger(v)||v<0))throw new Error('Informe quantidades inteiras não negativas.');
+ if(withAppointment+withoutAppointment>entry.calls)throw new Error(`A classificação não pode ultrapassar as ${entry.calls} reuniões já registradas neste dia.`);
+ entry.callsWithAppointment=withAppointment;entry.callsWithoutAppointment=withoutAppointment;
 }
