@@ -12,7 +12,7 @@ export const commercialHorizon={from:'2026-10-26',through:'2026-12-17',companies
 export const areas = ['Comercial','Saúde','Estudo','Disciplina'];
 export type Metric = {id:string; name:string; area:string; unit:string; target:number; weight:number; active:boolean};
 export type Entry = {date:string; leads:number; visits:number; scheduled:number; calls:number; callsWithAppointment?:number; callsWithoutAppointment?:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; responses?:number; sales?:number; channels?:Partial<Record<'online'|'presential',Record<string,number>>>; followupsRequired?:number; followupsCompleted?:number; followupsReviewed?:boolean; followupsDone?:boolean; sleepTime?:string; p4Planned?:number; p4Done?:number; visitReviews?:number; onlineReviews?:number; nutrition?:boolean; caloriesMet?:boolean; proteinMet?:boolean; abdomenSessions?:number; newsUpdates?:Partial<Record<'news'|'superhuman'|'instagram','Concluído'|'Não realizado'|'Sem edição'>>; trainings:Training[]};
-export type Week = {manualCommercialVersion?:1; previousCommercialEntries?:Entry[];simplificationVersion?:number;previousDashboardRules?:{metrics:Metric[];dailyTargets?:Record<string,number[]>;commercialDays?:{online:number[];presential:number[]}};commercialRows?:CommercialRow[];commercialDates?:string[];commercialReviews?:Record<string,{done:boolean;note:string}>;commercialHours?:CommercialHours[];strategyVersion?:number; commercialVersion?:number; commercialConfirmed?:boolean; studyDates?:string[]; studySessions?:StudySession[]; xSession?:{done:boolean;note:string}; metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string; dailyTargets?:Record<string,number[]>; executionVersion?:number; weeklyPending?:boolean; visitRecords?:Visit[]; meetings?:Meeting[]; commitmentsMet?:boolean; commitmentsAssessed?:boolean; p4Total?:number; p4Completed?:number; commercialDays?:{online:number[];presential:number[]}};
+export type Week = {historicalMeetings?:Record<string,{calls:number;withAppointment:number;withoutAppointment:number}>;manualCommercialVersion?:1; previousCommercialEntries?:Entry[];simplificationVersion?:number;previousDashboardRules?:{metrics:Metric[];dailyTargets?:Record<string,number[]>;commercialDays?:{online:number[];presential:number[]}};commercialRows?:CommercialRow[];commercialDates?:string[];commercialReviews?:Record<string,{done:boolean;note:string}>;commercialHours?:CommercialHours[];strategyVersion?:number; commercialVersion?:number; commercialConfirmed?:boolean; studyDates?:string[]; studySessions?:StudySession[]; xSession?:{done:boolean;note:string}; metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string; dailyTargets?:Record<string,number[]>; executionVersion?:number; weeklyPending?:boolean; visitRecords?:Visit[]; meetings?:Meeting[]; commitmentsMet?:boolean; commitmentsAssessed?:boolean; p4Total?:number; p4Completed?:number; commercialDays?:{online:number[];presential:number[]}};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
 export type Period = {finance?:FinanceState;commercialScheduleVersion?:number;confirmedWeightsVersion?:number;commercialData?:CommercialData;strategyVersion?:number; studyStages?:Record<number,StudyStage>; studyMaterials?:StudyMaterial[]; bodyRecords?:BodyRecord[]; nutritionPlan?:{calories:string;protein:string;fat:string;meals:string[]}; id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; calendarVersion?:number; commitmentPrinciple?:string; commitments?:string[]; perspective?:string; horizons?:Horizon[]};
@@ -296,7 +296,18 @@ export function commercialSummaryTotals(period:Period,index:number,scope:string,
  // Legacy follow-up checkboxes are days, so they remain outside the manual task counts.
  const allEntries=period.weeks.flatMap((w,i)=>(scope==='period'?weekDates(period,i)[0]<=today:i===index)?w.entries.filter(e=>scope==='day'?e.date===today:e.date<=today):[]);
  const classified=manualCommercialTotals({entries:allEntries}),calls=execution.total.calls||0;
- return {...manual,visits:execution.total.visits||0,calls,callsWithAppointment:classified.callsWithAppointment,callsWithoutAppointment:classified.callsWithoutAppointment,callsUnclassified:Math.max(0,calls-classified.callsWithAppointment-classified.callsWithoutAppointment)};
+ let correctedCalls=calls,withAppointment=classified.callsWithAppointment,withoutAppointment=classified.callsWithoutAppointment;
+ for(const [i,w] of period.weeks.entries()){
+  if(scope!=='period'&&i!==index)continue;
+  for(const [date,correction] of Object.entries(w.historicalMeetings||{})){
+   if(date>today||(scope==='day'&&date!==today))continue;
+   const original=w.entries.find(e=>e.date===date);
+   correctedCalls+=correction.calls-(original?.calls||0);
+   withAppointment+=correction.withAppointment-(original?.callsWithAppointment||0);
+   withoutAppointment+=correction.withoutAppointment-(original?.callsWithoutAppointment||0);
+  }
+ }
+ return {...manual,visits:execution.total.visits||0,calls:correctedCalls,callsWithAppointment:withAppointment,callsWithoutAppointment:withoutAppointment,callsUnclassified:Math.max(0,correctedCalls-withAppointment-withoutAppointment)};
 }
 
 export function classifyPastMeetings(period:Period,date:string,withAppointment:number,withoutAppointment:number){
@@ -305,4 +316,17 @@ export function classifyPastMeetings(period:Period,date:string,withAppointment:n
  if([withAppointment,withoutAppointment].some(v=>!Number.isInteger(v)||v<0))throw new Error('Informe quantidades inteiras não negativas.');
  if(withAppointment+withoutAppointment>entry.calls)throw new Error(`A classificação não pode ultrapassar as ${entry.calls} reuniões já registradas neste dia.`);
  entry.callsWithAppointment=withAppointment;entry.callsWithoutAppointment=withoutAppointment;
+}
+
+
+export function meetingEntryForDate(period:Period,date:string):Entry{
+ const w=period.weeks[weekIndexForDate(period,date)],e=structuredClone(w?.entries.find(e=>e.date===date)??emptyEntry(date)),correction=w?.historicalMeetings?.[date];
+ if(correction){e.calls=correction.calls;e.callsWithAppointment=correction.withAppointment;e.callsWithoutAppointment=correction.withoutAppointment;}
+ return e;
+}
+export function saveHistoricalMeetings(period:Period,date:string,calls:number,withAppointment:number,withoutAppointment:number,now=Date.now()){
+ const index=weekIndexForDate(period,date);
+ if(index<0||date>new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))throw new Error('Escolha uma data passada dentro do ciclo.');
+ if([calls,withAppointment,withoutAppointment].some(v=>!Number.isInteger(v)||v<0)||withAppointment+withoutAppointment>calls)throw new Error('Informe quantidades inteiras; a classificação não pode ultrapassar o total.');
+ const w=period.weeks[index];w.historicalMeetings??={};w.historicalMeetings[date]={calls,withAppointment,withoutAppointment};
 }
