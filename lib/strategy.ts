@@ -3,7 +3,7 @@ import type {Period,Week,Metric} from './engine';
 export type StudySession={id:string;date:string;minutes:number;stage:number|null;note:string};
 export type StudyStage={status:'Não iniciado'|'Em andamento'|'Concluído';level:''|'Noção'|'Aplicação'|'Domínio prático';evidence:string;note:string;demonstrated:boolean};
 export type StudyMaterial={id:string;title:string;url:string;source:string;subject:string;week:number;status:'Pendente'|'Em estudo'|'Concluído'};
-export type BodyRecord={id:string;date:string;weight?:number;waist?:number;arm?:number;hip?:number;photos?:{front?:string;side?:string;back?:string}};
+export type BodyRecord={id:string;date:string;weight?:number;waist?:number;arm?:number;bicepsRightRelaxed?:number;bicepsLeftRelaxed?:number;bicepsRightContracted?:number;bicepsLeftContracted?:number;quadricepsRightRelaxed?:number;quadricepsLeftRelaxed?:number;quadricepsRightContracted?:number;quadricepsLeftContracted?:number;hip?:number;photos?:{front?:string;side?:string;back?:string}};
 export const months=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 export const syllabus=[
  ['Fundamentos essenciais de LLMs e aprofundamento no X','Explicar os componentes e o funcionamento de uma requisição e aprofundar um tema selecionado no X.'],
