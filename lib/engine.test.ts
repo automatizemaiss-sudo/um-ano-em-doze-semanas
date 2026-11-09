@@ -2,7 +2,7 @@ import type {Entry} from './engine.ts';
 import {trainingGrade,before2330} from './rules.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {manualCommercialTotals,makePeriod,scoreWeek,scorePeriod,scoreWeekToDate,dailyTargets,weekDates,weekIndexForDate,migrateSundayCalendar,emptyEntry,virtualTime,projection,initialState,migrateDemoState,applySimplifiedDashboard,applyCommercialPlan,applyRequestedWeights} from './engine.ts';
+import {applyOptionalMakers,manualCommercialTotals,makePeriod,scoreWeek,scorePeriod,scoreWeekToDate,dailyTargets,weekDates,weekIndexForDate,migrateSundayCalendar,emptyEntry,virtualTime,projection,initialState,migrateDemoState,applySimplifiedDashboard,applyCommercialPlan,applyRequestedWeights} from './engine.ts';
 test('excesso não mascara métricas ignoradas; revisões são derivadas',()=>{const p=makePeriod('Teste','2026-01-01T00:00:00Z');const e=emptyEntry('2026-01-01');e.leads=600;e.calls=4;e.reviews=3;p.weeks[0].entries=[e];const s=scoreWeek(p.weeks[0]);assert.equal(s.metrics.find(m=>m.id==='reviews')?.ratio,.75);assert.equal(s.scores.Comercial,3.75/10);});
 test('relógio contínuo, limites e projeções de estoque',()=>{const p=makePeriod('Teste','2026-01-01T00:00:00Z');const start=Date.parse(p.start);assert.equal(virtualTime(p,start+(Date.parse(p.end)-start)/2).progress,.5);assert.equal(virtualTime(p,start-1).progress,0);assert.equal(virtualTime(p,Date.parse(p.end)).virtual.getUTCMonth(),11);assert.equal(projection({...p.goals[3],value:24500,initial:24225,confirmed:true,initialConfirmed:true},.5),24775);});
 test('snapshots são independentes',()=>{const p=makePeriod('Teste','2026-01-01T00:00:00Z');p.weeks[1].metrics[0].target=80;assert.equal(p.weeks[0].metrics[0].target,60);});
@@ -210,3 +210,16 @@ test('lança reuniões esquecidas em dia encerrado sem registro e preserva execu
 });
 
 test('corrige total de reuniões de dia já registrado sem duplicar nem modificar os demais dados',async()=>{const {saveHistoricalMeetings,commercialSummaryTotals}=await import('./engine.ts');const now=Date.parse('2026-10-27T12:00:00-03:00'),p=initialState(now).periods[0],w=p.weeks[1];w.entries=[{...emptyEntry('2026-10-13'),calls:2,minutes:90}];const before=scoreWeek(w);saveHistoricalMeetings(p,'2026-10-13',5,3,2,now);assert.equal(commercialSummaryTotals(p,1,'week',now).calls,5);assert.equal(w.entries[0].calls,2);assert.equal(w.entries[0].minutes,90);assert.deepEqual(scoreWeek(w),before);});
+
+test('AI Makers é opcional desde 09/11 sem alterar semanas anteriores ou registros',()=>{
+ const p=makePeriod('Teste','2026-10-06T00:00:00-03:00');
+ p.weeks.forEach(w=>{w.metrics.push({id:'makers',name:'AI Makers',area:'Estudo',unit:'dias',target:7,weight:1,active:true});});
+ const before=structuredClone(p.weeks.slice(0,5));
+ const entry=emptyEntry('2026-11-09');entry.makers=true;p.weeks[5].entries.push(entry);
+ applyOptionalMakers(p);
+ assert.deepEqual(p.weeks.slice(0,5),before);
+ assert.ok(p.weeks.slice(5).every(w=>w.metrics.filter(m=>m.id==='makers').every(m=>!m.active)));
+ assert.equal(p.weeks[5].entries[0].makers,true);
+ assert.ok(!scoreWeek(p.weeks[5]).metrics.some(m=>m.id==='makers'));
+ const saved=structuredClone(p);applyOptionalMakers(p);assert.deepEqual(p,saved);
+});

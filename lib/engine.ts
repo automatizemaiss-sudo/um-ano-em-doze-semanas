@@ -30,7 +30,15 @@ export function emptyEntry(date:string):Entry {return {date,leads:0,visits:0,sch
 export function makePeriod(name:string,start:string,metrics=defaults,areaWeights:Record<string,number>=weights):Period {
  const end=weekBounds({start} as Period,11).end;
  const period:Period={id:crypto.randomUUID(),name,start,end,closed:false,areaWeightsVersion:2,calendarVersion:1,commitmentPrinciple:commitments.principle,commitments:[...commitments.items],weeks:Array.from({length:12},()=>({metrics:structuredClone(metrics),weights:{...areaWeights},entries:[],reviewed:false,note:''})),goals:[{name:'Clientes fechados',area:'Empresa',value:0,target:8,initial:0,unit:'clientes',stock:false,confirmed:false,initialConfirmed:true},{name:'Caixa da empresa',area:'Empresa',value:0,target:16000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Receita nova',area:'Empresa',value:0,target:0,initial:0,unit:'R$',stock:false,confirmed:false,initialConfirmed:true},{name:'Investimentos',area:'Pessoal',value:0,target:25000,initial:0,unit:'R$',stock:true,confirmed:false,initialConfirmed:false},{name:'Peso corporal',area:'Saúde',value:0,target:70,initial:0,unit:'kg',stock:true,confirmed:false,initialConfirmed:false}],life:structuredClone(lifeDefaults),strategies:'Não distribuir lucro.\nViver apenas com pró-labore de R$3.200.\nProspectar consistentemente durante o período.'};
- configureExecution(period,0);applyStrategy(period);period.weeks.forEach((w,i)=>{if(w.commercialVersion===1)w.commercialDates=weekDates(period,i);});return period;
+ configureExecution(period,0);applyStrategy(period);period.weeks.forEach((w,i)=>{if(w.commercialVersion===1)w.commercialDates=weekDates(period,i);});applyOptionalMakers(period);return period;
+}
+// AI Makers is optional from the week beginning 9 November 2026.
+export function applyOptionalMakers(period:Period):void {
+ period.weeks.forEach((week,index)=>{
+  if(weekDates(period,index)[0]<'2026-11-09')return;
+  const metric=week.metrics.find(m=>m.id==='makers');
+  if(metric)metric.active=false;
+ });
 }
 export function virtualTime(period:Period,now:number) {
  const start=Date.parse(period.start),end=Date.parse(period.end),totalDays=Math.ceil((end-start)/86400000);const progress=period.closed?1:Math.max(0,Math.min(1,(now-start)/(end-start)));
@@ -141,6 +149,7 @@ export function migrateDemoState(state:State,now=Date.now()):State {
  for(const p of state.periods){applyConfirmedWeights(p);applyConfirmedSchedule(p);applySimplifiedDashboard(p);applyManualCommercial(p,now);}
  state.weights.Comercial=45;state.weights.Disciplina=10;
  for(const saved of preserved){const p=state.periods.find(p=>p.id===saved.id);if(p){p.weeks[0]=saved.weeks[0];p.weeks[1]=saved.weeks[1];}}
+ for(const p of state.periods)applyOptionalMakers(p);
  const real=state.periods.filter(p=>p.name!=='Período demonstrativo');
  if(real.length===state.periods.length){for(const p of real){if(Date.parse(p.start)===Date.parse(initialPeriod.start)&&!p.commercialPlanVersion)applyCommercialPlan(p,true);}return state;}
  if(!real.length){const p=makePeriod(initialPeriod.name,initialPeriod.start,state.defaults,state.weights);applyCommercialPlan(p,true);correctWeekOneTargets(p);applySimplifiedDashboard(p);applyManualCommercial(p,now);return {...state,periods:[p],selected:p.id};}
