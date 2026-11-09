@@ -223,3 +223,18 @@ test('AI Makers é opcional desde 09/11 sem alterar semanas anteriores ou regist
  assert.ok(!scoreWeek(p.weeks[5]).metrics.some(m=>m.id==='makers'));
  const saved=structuredClone(p);applyOptionalMakers(p);assert.deepEqual(p,saved);
 });
+
+test('rotina Zeus persiste no dia sem alterar score ou totais comerciais',()=>{
+ const p=initialState().periods[0],index=5;
+ const entry=emptyEntry('2026-11-09');p.weeks[index].entries.push(entry);
+ const before=scoreWeek(p.weeks[index]);
+ entry.zeus={leads:20,scheduled:4,calls:3,sales:2};
+ const restored=JSON.parse(JSON.stringify(p));
+ assert.deepEqual(restored.weeks[index].entries[0].zeus,entry.zeus);
+ const after=scoreWeek(restored.weeks[index]);
+ assert.equal(after.overall,before.overall);
+ assert.deepEqual(after.scores,before.scores);
+ assert.deepEqual(after.total,before.total);
+ assert.deepEqual(after.metrics,before.metrics);
+ assert.equal(emptyEntry('2026-11-10').zeus,undefined);
+});
