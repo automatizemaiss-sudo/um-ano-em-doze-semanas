@@ -1,12 +1,12 @@
 'use client';
-import {commercialSummaryTotals,type Entry,type Period} from '../lib/engine';
+import {commercialSummaryTotals,type Entry,type Period,type DateRange} from '../lib/engine';
 
 const fields=[['visits','Prospecções presenciais · novas empresas'],['followupsRequired','Follow-ups necessários'],['followupsCompleted','Follow-ups feitos'],['scheduled','Reuniões agendadas'],['calls','Reuniões realizadas · total'],['callsWithAppointment','Realizadas com agendamento'],['callsWithoutAppointment','Realizadas sem agendamento']] as const;
 export function ManualCommercialEntry({entry,setEntry}:{entry:Entry;setEntry:(entry:Entry)=>void}){
  return <><div className="form-grid">{fields.map(([key,label])=><label key={key}>{label}<input type="number" min="0" step="1" value={entry[key]??0} onChange={e=>{const next={...entry,[key]:Math.max(0,Math.trunc(Number(e.target.value)||0))};if(key==='calls')next.calls=Math.max(next.calls,(next.callsWithAppointment||0)+(next.callsWithoutAppointment||0));else if(key==='callsWithAppointment'||key==='callsWithoutAppointment'){const previousUnclassified=Math.max(0,entry.calls-(entry.callsWithAppointment||0)-(entry.callsWithoutAppointment||0));next.calls=(next.callsWithAppointment||0)+(next.callsWithoutAppointment||0)+previousUnclassified;}setEntry(next);}}/></label>)}</div><p className="quality-note">Prospecções: conte novas empresas distintas com contato efetivo e resultado ou encaminhamento registrado. Retornos e tentativas sem contato não entram nessa contagem.</p><p className="quality-note">Necessários: total que precisava fazer neste dia, incluindo os já feitos. Feitos: total realizado neste dia. Agendadas: novos agendamentos feitos neste dia, mesmo que a reunião aconteça depois. Realizadas: apenas as que aconteceram neste dia, sem cancelamentos. Reuniões ficam fora do score.</p></>;
 }
-export function ManualCommercialSummary({period,index,scope,now}:{period:Period;index:number;scope:string;now:number}){
- const total=commercialSummaryTotals(period,index,scope,now);
+export function ManualCommercialSummary({period,index,scope,now,range}:{period:Period;index:number;scope:string;now:number;range?:DateRange}){
+ const total=commercialSummaryTotals(period,index,scope,now,range);
  return <section className="card"><div className="section-title"><h2>Resultados comerciais registrados</h2></div><p>Totais do intervalo selecionado. Reuniões agendadas e realizadas são acompanhamento, fora do score.</p><div className="quality-grid">{[['Novas empresas',total.visits],['Follow-ups necessários',total.followupsRequired],['Follow-ups feitos',total.followups],['Reuniões agendadas',total.scheduled],['Reuniões realizadas · total',total.calls],['Com agendamento',total.callsWithAppointment],['Sem agendamento',total.callsWithoutAppointment],...(total.callsUnclassified>0?[['Sem classificação',total.callsUnclassified]]:[])].map(([label,value])=><div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div></section>;
 }
 

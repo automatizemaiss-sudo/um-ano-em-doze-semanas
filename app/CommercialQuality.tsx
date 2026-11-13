@@ -1,11 +1,11 @@
 'use client';
-import {scoreWeek,weekDates,type Period} from '../lib/engine';
+import {scoreWeek,weekDates,type Period,type DateRange} from '../lib/engine';
 import {commercialQuality,type QualityCounts} from '../lib/commercial-quality';
-export function CommercialQuality({period,index,scope,now}:{period:Period;index:number;scope:string;now:number}){
+export function CommercialQuality({period,index,scope,now,range}:{period:Period;index:number;scope:string;now:number;range?:DateRange}){
  const today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}),legacy:Record<string,number>={},rows=new Map<string,NonNullable<Period['commercialData']>['rows'][number]>(),dates:string[]=[];
- const indices=scope==='period'?period.weeks.map((_,i)=>i).filter(i=>weekDates(period,i)[0]<=today):[index];
+ const indices=(scope==='period'||scope==='custom')?period.weeks.map((_,i)=>i).filter(i=>weekDates(period,i)[0]<=today):[index];
  const legacyDates:string[]=[];
- for(const i of indices){const w=period.weeks[i],selected=weekDates(period,i).filter(d=>scope==='day'?d===today:d<=today);dates.push(...selected);if(w.commercialVersion===1){for(const row of w.commercialRows||[])rows.set(row.id,row);}else{legacyDates.push(...selected);const score=scoreWeek({...w,entries:w.entries.filter(e=>selected.includes(e.date)),meetings:w.meetings?.filter(m=>selected.includes(m.date)),visitRecords:w.visitRecords?.filter(v=>selected.includes(v.date))});for(const [key,value] of Object.entries(score.total))legacy[key]=(legacy[key]||0)+value;}}
+ for(const i of indices){const w=period.weeks[i],selected=weekDates(period,i).filter(d=>scope==='day'?d===today:d<=today&&(!range||(d>=range.start&&d<=range.end)));dates.push(...selected);if(w.commercialVersion===1){for(const row of w.commercialRows||[])rows.set(row.id,row);}else{legacyDates.push(...selected);const score=scoreWeek({...w,entries:w.entries.filter(e=>selected.includes(e.date)),meetings:w.meetings?.filter(m=>selected.includes(m.date)),visitRecords:w.visitRecords?.filter(v=>selected.includes(v.date))});for(const [key,value] of Object.entries(score.total))legacy[key]=(legacy[key]||0)+value;}}
  // Never import source activities into periods already represented by historical totals.
  const source=[...rows.values()].map(r=>({...r,done:legacyDates.includes(r.done)?'':r.done,recorded:legacyDates.includes(r.recorded)?'':r.recorded,response:legacyDates.includes(r.response)?'':r.response,first:legacyDates.includes(r.first)?'':r.first}));
  const sourceComplete=indices.every(i=>period.weeks[i].commercialVersion!==1||period.weeks[i].commercialConfirmed===true);

@@ -11,7 +11,7 @@ export function isLeadMetric(metric:{id:string}):boolean{return metricRoles[metr
 export const commercialHorizon={from:'2026-10-26',through:'2026-12-17',companies:160,clients:8,deadline:'2026-12-28'};
 export const areas = ['Comercial','Saúde','Estudo','Disciplina'];
 export type Metric = {id:string; name:string; area:string; unit:string; target:number; weight:number; active:boolean};
-export type ZeusRoutine = {leads:number;scheduled:number;calls:number;sales:number};
+export type ZeusRoutine = {leads:number;scheduled:number;calls:number;sales:number;followupsRequired?:number;followupsCompleted?:number};
 export type Entry = {zeus?:ZeusRoutine;date:string; leads:number; visits:number; scheduled:number; calls:number; callsWithAppointment?:number; callsWithoutAppointment?:number; reviews:number; minutes:number; updates:boolean; makers:boolean; daily:boolean; responses?:number; sales?:number; channels?:Partial<Record<'online'|'presential',Record<string,number>>>; followupsRequired?:number; followupsCompleted?:number; followupsReviewed?:boolean; followupsDone?:boolean; sleepTime?:string; p4Planned?:number; p4Done?:number; visitReviews?:number; onlineReviews?:number; nutrition?:boolean; caloriesMet?:boolean; proteinMet?:boolean; abdomenSessions?:number; newsUpdates?:Partial<Record<'news'|'superhuman'|'instagram','Concluído'|'Não realizado'|'Sem edição'>>; trainings:Training[]};
 export type Week = {historicalMeetings?:Record<string,{calls:number;withAppointment:number;withoutAppointment:number}>;manualCommercialVersion?:1; previousCommercialEntries?:Entry[];simplificationVersion?:number;previousDashboardRules?:{metrics:Metric[];dailyTargets?:Record<string,number[]>;commercialDays?:{online:number[];presential:number[]}};commercialRows?:CommercialRow[];commercialDates?:string[];commercialReviews?:Record<string,{done:boolean;note:string}>;commercialHours?:CommercialHours[];strategyVersion?:number; commercialVersion?:number; commercialConfirmed?:boolean; studyDates?:string[]; studySessions?:StudySession[]; xSession?:{done:boolean;note:string}; metrics:Metric[]; weights:Record<string,number>; entries:Entry[]; reviewed:boolean; note:string; dailyTargets?:Record<string,number[]>; executionVersion?:number; weeklyPending?:boolean; visitRecords?:Visit[]; meetings?:Meeting[]; commitmentsMet?:boolean; commitmentsAssessed?:boolean; p4Total?:number; p4Completed?:number; commercialDays?:{online:number[];presential:number[]}};
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
@@ -189,9 +189,13 @@ export function correctWeekOneTargets(period:Period):void {
  period.weekOneTargetsVersion=1;
 }
 
-export function scorePeriod(period:Period,now=Date.now()) {
+export type DateRange = {start:string;end:string};
+
+export function scorePeriod(period:Period,now=Date.now(),range?:DateRange) {
+ const inRange=(date:string)=>!range||(date>=range.start&&date<=range.end);
  const last=virtualTime(period,now).week-1;
- const included=period.weeks.slice(0,last+1).map((w,i)=>{const plan=dailyTargets(period,i),dates=weekDates(period,i),today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});return {...w,commercialDates:dates.filter(d=>d<=today),studyDates:dates.filter(d=>d<=today),studySessions:w.studySessions?.filter(e=>e.date<=today),weeklyPending:dates[dates.length-1]>today&&!w.reviewed,visitRecords:(w.visitRecords||[]).filter(v=>v.date<=today),meetings:(w.meetings||[]).filter(m=>m.date<=today),entries:w.entries.filter(e=>e.date<=today),metrics:w.metrics.map(m=>({...m,target:w.reviewed&&['weekly','p4','commitments','commercialWeekly'].includes(m.id)?m.target:dates.reduce((s,d,j)=>s+(d<=today?plan[m.id]?.[j]||0:0),0)})),reviewed:w.reviewed};});
+ const included=period.weeks.slice(0,last+1).map((w,i)=>{const plan=dailyTargets(period,i),dates=weekDates(period,i),today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});return {...w,commercialDates:dates.filter(d=>d<=today&&inRange(d)),studyDates:dates.filter(d=>d<=today&&inRange(d)),studySessions:w.studySessions?.filter(e=>e.date<=today&&inRange(e.date)),p4Total:inRange(dates[dates.length-1])?w.p4Total:undefined,p4Completed:inRange(dates[dates.length-1])?w.p4Completed:undefined,weeklyPending:(dates[dates.length-1]>today||!inRange(dates[dates.length-1]))&&!(w.reviewed&&inRange(dates[dates.length-1])),visitRecords:(w.visitRecords||[]).filter(v=>v.date<=today&&inRange(v.date)),meetings:(w.meetings||[]).filter(m=>m.date<=today&&inRange(m.date)),entries:w.entries.filter(e=>e.date<=today&&inRange(e.date)),metrics:w.metrics.map(m=>({...m,target:w.reviewed&&inRange(dates[dates.length-1])&&['weekly','p4','commitments','commercialWeekly'].includes(m.id)?m.target:dates.reduce((s,d,j)=>s+(d<=today&&inRange(d)?plan[m.id]?.[j]||0:0),0)})),reviewed:w.reviewed&&inRange(dates[dates.length-1])};}).filter((_,i)=>!range||weekDates(period,i).some(inRange));
+ if(!included.length)return scoreWeekToDate(period,0,now,'9999-12-31');
  const combined:Week={metrics:[],weights:{...included[0].weights},executionVersion:included.some(w=>w.executionVersion===1)?1:undefined,visitRecords:included.flatMap(w=>(w.visitRecords||[]).filter(v=>v.date<=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))),meetings:included.flatMap(w=>(w.meetings||[]).filter(m=>m.date<=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))),entries:included.flatMap(w=>w.entries.filter(e=>Date.parse(e.date+'T00:00:00-03:00')<=now)),reviewed:false,note:''};
  const byId=new Map<string,Metric>();
  for(const w of included){for(const m of w.metrics){if(!m.active)continue;const existing=byId.get(m.id);if(existing){existing.target+=m.target;existing.weight+=m.weight;existing.name=m.name;if(existing.unit!==m.unit)existing.unit='registros';}else byId.set(m.id,{...m});}}
@@ -214,7 +218,7 @@ export function scorePeriod(period:Period,now=Date.now()) {
   for(const key of new Set(snapshots.flatMap(s=>Object.keys(s.total))))result.total[key]=snapshots.reduce((sum,s)=>sum+(s.total[key]||0),0);
  }
  const today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
- for(const m of result.metrics){let past=0;let dueToday=0;period.weeks.slice(0,last+1).forEach((w,i)=>{const plan=dailyTargets(period,i),dates=weekDates(period,i);dates.forEach((d,j)=>{if(d<today)past+=plan[m.id]?.[j]||0;if(d===today)dueToday+=plan[m.id]?.[j]||0;});});if(m.id==='reviews'){past=scoreWeek({...combined,entries:combined.entries.filter(e=>e.date<today)}).total.calls||0;dueToday=(result.total.calls||0)-past;}m.overdue=Math.max(0,past-m.value);m.dueToday=dueToday;}
+ for(const m of result.metrics){let past=0;let dueToday=0;period.weeks.slice(0,last+1).forEach((w,i)=>{const plan=dailyTargets(period,i),dates=weekDates(period,i);dates.forEach((d,j)=>{if(d<today&&inRange(d))past+=plan[m.id]?.[j]||0;if(d===today&&inRange(d))dueToday+=plan[m.id]?.[j]||0;});});if(m.id==='reviews'){past=scoreWeek({...combined,entries:combined.entries.filter(e=>e.date<today)}).total.calls||0;dueToday=(result.total.calls||0)-past;}m.overdue=Math.max(0,past-m.value);m.dueToday=dueToday;}
  return {...result,weights:{...period.weeks[last].weights},entries:combined.entries};
 }
 
@@ -297,20 +301,20 @@ export function configureExecution(period:Period,from:number):void {
 }
 
 
-export function commercialSummaryTotals(period:Period,index:number,scope:string,now=Date.now()){
+export function commercialSummaryTotals(period:Period,index:number,scope:string,now=Date.now(),range?:DateRange){
  const today=new Date(now).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
- const entries=period.weeks.flatMap((w,i)=>w.manualCommercialVersion===1&&(scope==='period'?weekDates(period,i)[0]<=today:i===index)?w.entries.filter(e=>scope==='day'?e.date===today:e.date<=today):[]);
+ const entries=period.weeks.flatMap((w,i)=>w.manualCommercialVersion===1&&((scope==='period'||scope==='custom')?weekDates(period,i)[0]<=today:i===index)?w.entries.filter(e=>scope==='day'?e.date===today:e.date<=today&&(!range||(e.date>=range.start&&e.date<=range.end))):[]);
  const manual=manualCommercialTotals({entries});
- const execution=scope==='period'?scorePeriod(period,now):scoreWeekToDate(period,index,now,scope==='day'?today:undefined);
+ const execution=(scope==='period'||scope==='custom')?scorePeriod(period,now,range):scoreWeekToDate(period,index,now,scope==='day'?today:undefined);
  // Both views must use the same historical + current count of companies.
  // Legacy follow-up checkboxes are days, so they remain outside the manual task counts.
- const allEntries=period.weeks.flatMap((w,i)=>(scope==='period'?weekDates(period,i)[0]<=today:i===index)?w.entries.filter(e=>scope==='day'?e.date===today:e.date<=today):[]);
+ const allEntries=period.weeks.flatMap((w,i)=>((scope==='period'||scope==='custom')?weekDates(period,i)[0]<=today:i===index)?w.entries.filter(e=>scope==='day'?e.date===today:e.date<=today&&(!range||(e.date>=range.start&&e.date<=range.end))):[]);
  const classified=manualCommercialTotals({entries:allEntries}),calls=execution.total.calls||0;
  let correctedCalls=calls,withAppointment=classified.callsWithAppointment,withoutAppointment=classified.callsWithoutAppointment;
  for(const [i,w] of period.weeks.entries()){
-  if(scope!=='period'&&i!==index)continue;
+  if(scope!=='period'&&scope!=='custom'&&i!==index)continue;
   for(const [date,correction] of Object.entries(w.historicalMeetings||{})){
-   if(date>today||(scope==='day'&&date!==today))continue;
+   if((range&&(date<range.start||date>range.end))||date>today||(scope==='day'&&date!==today))continue;
    const original=w.entries.find(e=>e.date===date);
    correctedCalls+=correction.calls-(original?.calls||0);
    withAppointment+=correction.withAppointment-(original?.callsWithAppointment||0);

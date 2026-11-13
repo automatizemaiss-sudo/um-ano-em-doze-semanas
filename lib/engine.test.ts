@@ -228,7 +228,7 @@ test('rotina Zeus persiste no dia sem alterar score ou totais comerciais',()=>{
  const p=initialState().periods[0],index=5;
  const entry=emptyEntry('2026-11-09');p.weeks[index].entries.push(entry);
  const before=scoreWeek(p.weeks[index]);
- entry.zeus={leads:20,scheduled:4,calls:3,sales:2};
+ entry.zeus={leads:20,scheduled:4,calls:3,sales:2,followupsRequired:6,followupsCompleted:4};
  const restored=JSON.parse(JSON.stringify(p));
  assert.deepEqual(restored.weeks[index].entries[0].zeus,entry.zeus);
  const after=scoreWeek(restored.weeks[index]);
@@ -238,3 +238,19 @@ test('rotina Zeus persiste no dia sem alterar score ou totais comerciais',()=>{
  assert.deepEqual(after.metrics,before.metrics);
  assert.equal(emptyEntry('2026-11-10').zeus,undefined);
 });
+
+ test('intervalo personalizado inclui limites, cruza semanas e ignora dias futuros',async()=>{
+ const {commercialSummaryTotals}=await import('./engine.ts');
+ const now=Date.parse('2026-11-03T12:00:00-03:00'),p=initialState(Date.parse('2026-10-25T12:00:00-03:00')).periods[0];
+ for(const [date,value] of [['2026-10-29',100],['2026-10-30',2],['2026-11-02',3],['2026-11-03',100],['2026-11-04',100]] as const){
+  p.weeks[weekIndexForDate(p,date)].entries.push({...emptyEntry(date),visits:value,followupsRequired:value,followupsCompleted:value,zeus:{leads:value,calls:0,scheduled:0,sales:0,followupsRequired:value,followupsCompleted:value}});
+ }
+ const range={start:'2026-10-30',end:'2026-11-02'},score=scorePeriod(p,now,range);
+ assert.deepEqual(score.entries.map(e=>e.date),['2026-10-30','2026-11-02']);
+ assert.equal(score.total.visits,5);
+ assert.equal(score.metrics.find(m=>m.id==='followups')!.target,5);
+ assert.equal(score.metrics.find(m=>m.id==='visits')!.target,5);
+ assert.equal(commercialSummaryTotals(p,0,'custom',now,range).followupsRequired,5);
+ assert.equal(scorePeriod(p,now,{start:'2026-11-02',end:'2026-11-04'}).total.visits,103);
+ assert.equal(scorePeriod(p,now,{start:'2026-11-09',end:'2026-11-10'}).entries.length,0);
+ });
