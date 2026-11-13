@@ -228,7 +228,7 @@ test('rotina Zeus persiste no dia sem alterar score ou totais comerciais',()=>{
  const p=initialState().periods[0],index=5;
  const entry=emptyEntry('2026-11-09');p.weeks[index].entries.push(entry);
  const before=scoreWeek(p.weeks[index]);
- entry.zeus={leads:20,scheduled:4,calls:3,sales:2,followupsRequired:6,followupsCompleted:4};
+ entry.zeus={leads:20,scheduled:4,calls:3,sales:2,followupsRequired:6,followupsCompleted:4,refusals:3};
  const restored=JSON.parse(JSON.stringify(p));
  assert.deepEqual(restored.weeks[index].entries[0].zeus,entry.zeus);
  const after=scoreWeek(restored.weeks[index]);

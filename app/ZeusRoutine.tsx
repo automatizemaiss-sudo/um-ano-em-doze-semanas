@@ -2,11 +2,11 @@
 import {Plus} from 'lucide-react';
 import type {Entry} from '../lib/engine';
 
-const fields=[['leads','Leads Prospectados'],['scheduled','Reuniões agendadas'],['calls','Reuniões Feitas'],['sales','Vendas'],['followupsRequired','Follow-ups necessários'],['followupsCompleted','Follow-ups feitos']] as const;
+const fields=[['leads','Leads Prospectados'],['scheduled','Reuniões agendadas'],['calls','Reuniões Feitas'],['sales','Vendas'],['followupsRequired','Follow-ups necessários'],['followupsCompleted','Follow-ups feitos'],['refusals','Recusas/Contatos perdidos']] as const;
 
 export function ZeusRoutine({entry,setEntry}:{entry:Entry;setEntry:(entry:Entry)=>void}){
- if(!entry.zeus)return <button type="button" className="text-button" onClick={()=>setEntry({...entry,zeus:{leads:0,scheduled:0,calls:0,sales:0,followupsRequired:0,followupsCompleted:0}})}><Plus size={14}/> Registrar Rotina Zeus</button>;
- return <section aria-label="Rotina Zeus"><h3>Rotina Zeus</h3><p className="quality-note">Registro opcional, sem metas e fora do score.</p><div className="form-grid">{fields.map(([key,label])=><label key={key}>{label}<input type="number" min="0" step="1" value={entry.zeus![key]??0} onChange={e=>setEntry({...entry,zeus:{...entry.zeus!,[key]:Math.max(0,Math.trunc(Number(e.target.value)||0))}})}/></label>)}</div><button type="button" className="text-button" onClick={()=>{const next={...entry};delete next.zeus;setEntry(next);}}>Remover rotina Zeus</button></section>;
+ if(!entry.zeus)return <button type="button" className="text-button" onClick={()=>setEntry({...entry,zeus:{leads:0,scheduled:0,calls:0,sales:0,followupsRequired:0,followupsCompleted:0,refusals:0}})}><Plus size={14}/> Registrar Rotina Zeus</button>;
+ return <section aria-label="Rotina Zeus"><h3>Rotina Zeus</h3><p className="quality-note">Registro opcional, sem metas e fora do score. Em Recusas/Contatos perdidos, conte as recusas diretas recebidas no dia.</p><div className="form-grid">{fields.map(([key,label])=><label key={key}>{label}<input type="number" min="0" step="1" value={entry.zeus![key]??0} onChange={e=>setEntry({...entry,zeus:{...entry.zeus!,[key]:Math.max(0,Math.trunc(Number(e.target.value)||0))}})}/></label>)}</div><button type="button" className="text-button" onClick={()=>{const next={...entry};delete next.zeus;setEntry(next);}}>Remover rotina Zeus</button></section>;
 }
 
 export function ZeusSummary({entries}:{entries:Entry[]}){
