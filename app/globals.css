@@ -17,3 +17,9 @@
 .partial-score-note{font-size:12px;line-height:1.65;color:#7e672a;padding:0 24px 16px;margin:0}
 
 .custom-date-filter{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px}.custom-date-filter label{flex:1;min-width:160px}.custom-date-filter p{flex-basis:100%;color:var(--muted);font-size:12px}
+
+.score-metric-help{display:inline}
+.score-metric-help button{display:inline-grid;place-items:center;width:22px;height:22px;margin-left:6px;padding:0;vertical-align:middle;border:1px solid var(--border);border-radius:50%;color:var(--green);font-weight:700}
+.score-metric-help button:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.score-metric-tooltip{display:none}
+.score-metric-help:hover .score-metric-tooltip,.score-metric-help:focus-within .score-metric-tooltip,.score-metric-help[data-expanded=true] .score-metric-tooltip{display:grid;gap:6px;margin-top:6px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--canvas);color:var(--ink);line-height:1.5}

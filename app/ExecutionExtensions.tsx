@@ -1,6 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {weekIndexForDate,type Period,type Entry} from '../lib/engine';
+import {weekIndexForDate,wakeScheduleStart,type Period,type Entry} from '../lib/engine';
 import {validTraining,type Training,type Visit,type Meeting,type Horizon} from '../lib/rules';
 type Update=(fn:(p:Period)=>void)=>void;
 const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
@@ -9,7 +9,24 @@ export function WeeklyReview({period,index,update,message}:{period:Period;index:
  return <section className="card"><h2>Anotações da semana · Semana {index+1}</h2><form key={period.id+index} action={f=>{update(p=>{p.weeks[index].note=String(f.get('note')||'');});message('Anotações salvas.');}}><label>Observações<textarea name="note" defaultValue={w.note}/></label><small>Opcional. As anotações não participam do score.</small><button className="primary full">Salvar anotações</button></form></section>;
 }
 export function DailyExtras({entry,setEntry}:{entry:Entry;setEntry:(e:Entry)=>void}){
- return <section><h3>Sono</h3><label>Horário em que fui dormir · noite deste dia<input type="time" value={entry.sleepTime??''} onChange={e=>setEntry({...entry,sleepTime:e.target.value})}/></label><small>Antes de 23h30. Horários após meia-noite não cumprem o compromisso.</small></section>;
+ return <section>
+  <h3>Sono</h3>
+  <label>Horário em que fui dormir · noite deste dia<input type="time" value={entry.sleepTime??''} onChange={e=>setEntry({...entry,sleepTime:e.target.value})}/></label>
+  <small>Antes de 23h30. Horários após meia-noite não cumprem o compromisso.</small>
+  {entry.date>=wakeScheduleStart&&<>
+  <div className="form-grid">
+   <label>Horário em que acordei<input type="time" value={entry.wakeTime??''} onChange={e=>setEntry({...entry,wakeTime:e.target.value})}/></label>
+   <label>Acordei no horário da agenda?
+    <select value={entry.wokeOnSchedule===undefined?'':String(entry.wokeOnSchedule)} onChange={e=>setEntry({...entry,wokeOnSchedule:e.target.value===''?undefined:e.target.value==='true'})}>
+     <option value="">Sem resposta</option>
+     <option value="true">Sim</option>
+     <option value="false">Não</option>
+    </select>
+   </label>
+  </div>
+  <small>Disciplina divide os dias com “Sim” pelos dias respondidos. Vale o horário que você planejou para cada dia.</small>
+  </>}
+ </section>;
 }
 export function TrainingEditor({training:t,onChange,remove,modern=false}:{modern?:boolean;training:Training;onChange:(t:Training)=>void;remove:()=>void}){return <div className="training-new"><div className="form-grid"><label>Tipo<select value={t.type} onChange={e=>onChange({...t,type:e.target.value})}>{['Musculação','Futebol','Futsal','Corrida','Bicicleta','Caminhada cardiovascular estruturada','Aeróbico estruturado','Futlagoa','Outro'].map(x=><option key={x}>{x}</option>)}</select></label>{!modern&&<label>Nota · 1 a 10<select value={t.scale===10?t.quality:''} onChange={e=>onChange({...t,scale:10,quality:Number(e.target.value)})}><option value="" disabled>Reavaliar nota antiga ({t.quality}/5)</option>{Array.from({length:10},(_,i)=><option key={i} value={i+1}>{i+1}</option>)}</select></label>}<label>Duração (min)<input type="number" min="0" value={t.duration} onChange={e=>onChange({...t,duration:Math.max(0,Number(e.target.value))})}/></label></div>{modern&&<label className="check-label"><input type="checkbox" checked={!!t.abdomen} onChange={e=>onChange({...t,abdomen:e.target.checked})}/> Abdômen realizado neste treino</label>}{!modern&&<><small>Registre apenas sua nota. Os PRs e critérios de desempenho são conferidos por você no outro app.</small>{t.scale!==10&&<p className="amber">Nota antiga preservada. Reavalie para contar nos novos critérios.</p>}</>}<input placeholder="Observação" value={t.note} onChange={e=>onChange({...t,note:e.target.value})}/><button type="button" className="text-button" onClick={remove}>Remover treino</button></div>;}
 export function CommercialRecords({period,update,message}:{period:Period;update:Update;message:(s:string)=>void}){

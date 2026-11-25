@@ -254,3 +254,27 @@ test('rotina Zeus persiste no dia sem alterar score ou totais comerciais',()=>{
  assert.equal(scorePeriod(p,now,{start:'2026-11-02',end:'2026-11-04'}).total.visits,103);
  assert.equal(scorePeriod(p,now,{start:'2026-11-09',end:'2026-11-10'}).entries.length,0);
  });
+
+test('acordar no horário da agenda conta em Disciplina nos dias respondidos a partir de 26/11',()=>{
+ const now=Date.parse('2026-11-28T15:00:00-03:00');
+ const p=initialState(now).periods[0];
+ const index=weekIndexForDate(p,'2026-11-28');
+ const week=p.weeks[index];
+ const wakeMetric=(score:ReturnType<typeof scoreWeek>)=>score.metrics.find(m=>m.id==='wokeOnSchedule');
+ const onTime={...emptyEntry('2026-11-26'),wakeTime:'08:30',wokeOnSchedule:true};
+ const late={...emptyEntry('2026-11-28'),wakeTime:'05:30',wokeOnSchedule:false};
+ week.entries=[
+  {...emptyEntry('2026-11-25'),wokeOnSchedule:true},
+  {...emptyEntry('2026-11-27'),wakeTime:'06:30'},
+ ];
+ assert.equal(wakeMetric(scoreWeekToDate(p,index,now)),undefined);
+ week.entries.push(onTime,late,{...emptyEntry('2026-11-29'),wokeOnSchedule:true});
+
+ const score=scoreWeekToDate(p,index,now);
+ const wake=wakeMetric(score);
+ assert.deepEqual([wake?.value,wake?.target,wake?.ratio],[1,2,.5]);
+ assert.equal(wakeMetric(scoreWeekToDate(p,index,now,late.date))?.ratio,0);
+ assert.equal(score.scores.Disciplina,1/6);
+ assert.equal(wakeMetric(scorePeriod(p,now))?.ratio,.5);
+ assert.equal(wakeMetric(scorePeriod(p,now,{start:late.date,end:late.date}))?.ratio,0);
+});
