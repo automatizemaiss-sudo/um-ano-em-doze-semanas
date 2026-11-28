@@ -23,3 +23,34 @@
 .score-metric-help button:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 .score-metric-tooltip{display:none}
 .score-metric-help:hover .score-metric-tooltip,.score-metric-help:focus-within .score-metric-tooltip,.score-metric-help[data-expanded=true] .score-metric-tooltip{display:grid;gap:6px;margin-top:6px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--canvas);color:var(--ink);line-height:1.5}
+
+.company-finance{min-width:0}
+.cf-toolbar,.cf-toolbar nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.cf-toolbar{justify-content:space-between}
+.cf-toolbar label{margin:0}
+.company-finance section form .cf-toolbar{justify-content:flex-start;margin-top:14px}
+.cf-metrics,.cf-balances{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:12px;margin:14px 0}
+.cf-metrics>div,.cf-balances>div{display:grid;gap:5px;padding:13px;border-radius:10px;background:var(--soft,#edf3ee)}
+.cf-metrics strong{font-size:clamp(18px,2vw,25px)}
+.cf-metrics span,.cf-balances span,.company-finance small{color:var(--muted,#526359);font-size:12px}
+.company-finance small{display:block}
+.cf-table{overflow-x:auto}
+.cf-table table{border-collapse:collapse;width:100%;text-align:left}
+.cf-table td,.cf-table th{padding:10px 8px;vertical-align:top;border-bottom:1px solid var(--line,#dce6dc)}
+.cf-table td:first-child,.cf-table td:last-child{white-space:nowrap}
+.cf-table th{font-size:12px}
+.cf-line{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--line,#dce6dc)}
+.cf-statement>div{display:flex;gap:5px;flex-wrap:wrap}
+.company-finance details{border-bottom:1px solid var(--line,#dce6dc);padding:10px 0}
+.company-finance details summary{cursor:pointer}
+.company-finance details>button,.company-finance form>.secondary{margin-top:12px}
+.cf-message{padding:10px 14px;border-radius:8px;background:var(--soft,#edf3ee)}
+.company-finance.strategy-page{grid-template-columns:minmax(0,1fr)}
+.company-finance .card,.company-finance .form-grid label,.cf-toolbar nav{min-width:0}
+.company-finance .text-button{white-space:normal;text-align:left;font-size:13px}
+.cf-line>span{overflow-wrap:anywhere}
+@media(max-width:600px){
+  .company-finance .form-grid{grid-template-columns:minmax(0,1fr)}
+  .company-finance .card{padding:16px}
+  .cf-toolbar nav{width:100%}
+}

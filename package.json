@@ -6,10 +6,11 @@
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "test": "node --experimental-strip-types --test lib/engine.test.ts lib/finance.test.ts"
+    "test": "node --experimental-strip-types --test lib/engine.test.ts lib/finance.test.ts lib/company-finance.test.ts"
   },
   "dependencies": {
     "next": "^15.5.0",
+    "pdfjs-dist": "5.6.205",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "lucide-react": "^0.468.0",

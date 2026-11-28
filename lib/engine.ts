@@ -1,3 +1,4 @@
+import type {CompanyFinance} from './company-finance.ts';
 import type {FinanceState} from './finance.ts';
 import {commercialStats,type CommercialRow,type CommercialData,type CommercialHours} from './commercial.ts';
 import {applyStrategy,revisedTotals,type StudySession,type StudyStage,type StudyMaterial,type BodyRecord} from './strategy.ts';
@@ -18,7 +19,7 @@ export type Week = {historicalMeetings?:Record<string,{calls:number;withAppointm
 export type Goal = {name:string; area:string; value:number; target:number; initial:number; unit:string; stock:boolean; confirmed?:boolean; initialConfirmed?:boolean};
 export type Life = {name:string; vision:string; initial:number|null; final:number|null};
 export type Period = {finance?:FinanceState;commercialScheduleVersion?:number;confirmedWeightsVersion?:number;commercialData?:CommercialData;strategyVersion?:number; studyStages?:Record<number,StudyStage>; studyMaterials?:StudyMaterial[]; bodyRecords?:BodyRecord[]; nutritionPlan?:{calories:string;protein:string;fat:string;meals:string[]}; id:string; name:string; start:string; end:string; weeks:Week[]; goals:Goal[]; life:Life[]; strategies:string; closed:boolean; commercialPlanVersion?:number; areaWeightsVersion?:number; weekOneTargetsVersion?:number; calendarVersion?:number; commitmentPrinciple?:string; commitments?:string[]; perspective?:string; horizons?:Horizon[]};
-export type State = {periods:Period[]; selected:string; defaults:Metric[]; weights:Record<string,number>; green:number; yellow:number; areaWeightsVersion?:number; executionVersion?:number};
+export type State = {companyFinance?:CompanyFinance;periods:Period[]; selected:string; defaults:Metric[]; weights:Record<string,number>; green:number; yellow:number; areaWeightsVersion?:number; executionVersion?:number};
 export const defaults:Metric[] = [
  ['leads','Leads prospectados online','Comercial','leads',60,3],['visits','Prospecções presenciais','Comercial','empresas',8,2],['scheduled','Calls agendadas','Comercial','calls',5,2],['calls','Calls realizadas','Comercial','calls',4,2],['reviews','Revisões de call','Comercial','revisões',0,1],
  ['trainings','Treinos realizados','Saúde','treinos',5,1],['strength','Treinos de musculação','Saúde','treinos',3,1],['quality','Treinos com nota ≥ 4','Saúde','treinos',3,1],['perfect','Treinos com nota 5','Saúde','treinos',1,1],
